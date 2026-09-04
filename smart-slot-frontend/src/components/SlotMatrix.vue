@@ -1,108 +1,138 @@
 <template>
   <div class="slot-matrix-container card-shadow">
-    <!-- 头部工具栏: 日期切换与分类筛选 -->
-    <div class="matrix-header">
-      <div class="date-controls">
+    <!-- 头部工具栏: 日期切换、图例与统计 -->
+    <div class="matrix-toolbar">
+      <div class="date-navigator">
         <el-button-group>
-          <el-button :icon="ArrowLeft" @click="changeDate(-1)" size="default">前一天</el-button>
-          <el-button @click="resetToToday" size="default" :type="isToday ? 'primary' : 'default'">今天</el-button>
-          <el-button @click="changeDate(1)" size="default">后一天<el-icon class="el-icon--right"><ArrowRight /></el-icon></el-button>
+          <el-button :icon="ArrowLeft" @click="changeDate(-1)">前一天</el-button>
+          <el-button @click="resetToToday" :type="isToday ? 'primary' : 'default'">
+            今天 ({{ dayOfWeekText }})
+          </el-button>
+          <el-button @click="changeDate(1)">后一天<el-icon class="el-icon--right"><ArrowRight /></el-icon></el-button>
         </el-button-group>
         <el-date-picker
           v-model="selectedDate"
           type="date"
-          placeholder="选择预约日期"
+          placeholder="选择日期"
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           :disabled-date="disabledDate"
           @change="fetchMatrixData"
-          style="width: 160px; margin-left: 12px;"
+          style="width: 150px; margin-left: 12px;"
         />
       </div>
 
-      <!-- 图例说明 -->
-      <div class="status-legend">
-        <div class="legend-item"><span class="badge available"></span>空闲可选</div>
-        <div class="legend-item"><span class="badge pending"></span>锁定中</div>
-        <div class="legend-item"><span class="badge booked"></span>已被预约</div>
-        <div class="legend-item"><span class="badge mine"></span>我的预约</div>
-        <div class="legend-item"><span class="badge maintenance"></span>维护停用</div>
+      <!-- 现代状态指示图例 (Landing.love 灵感) -->
+      <div class="status-legend-bar">
+        <div class="legend-chip"><span class="legend-dot dot-available"></span>可选时段</div>
+        <div class="legend-chip"><span class="legend-dot dot-pending"></span>15分防刷锁定</div>
+        <div class="legend-chip"><span class="legend-dot dot-booked"></span>已被抢占</div>
+        <div class="legend-chip"><span class="legend-dot dot-mine"></span>我的行程</div>
+        <div class="legend-chip"><span class="legend-dot dot-maint"></span>场地维护</div>
       </div>
     </div>
 
-    <!-- 场地分类过滤标签 -->
-    <div class="category-tabs" v-if="categories.length">
-      <span class="tab-label">运动分类：</span>
-      <el-radio-group v-model="selectedCategoryId" @change="fetchMatrixData" size="small">
-        <el-radio-button :value="null">全部分类</el-radio-button>
-        <el-radio-button v-for="c in categories" :key="c.id" :value="c.id">
+    <!-- 运动分类快速过滤 Pills -->
+    <div class="category-filter-row" v-if="categories.length">
+      <span class="filter-caption">场馆类型筛选：</span>
+      <div class="pills-container">
+        <button 
+          class="matrix-filter-pill"
+          :class="{ active: selectedCategoryId === null }"
+          @click="selectCategory(null)"
+        >
+          全部分类
+        </button>
+        <button 
+          v-for="c in categories" 
+          :key="c.id" 
+          class="matrix-filter-pill"
+          :class="{ active: selectedCategoryId === c.id }"
+          @click="selectCategory(c.id)"
+        >
           {{ c.name }}
-        </el-radio-button>
-      </el-radio-group>
+        </button>
+      </div>
     </div>
 
-    <!-- 核心矩阵网格区域 -->
-    <div v-loading="loading" class="matrix-grid-wrapper">
-      <div v-if="matrixData?.venues?.length" class="matrix-table">
-        <!-- 表头：第一格为时段，后续为各场地 -->
-        <div class="matrix-row header-row">
-          <div class="matrix-cell time-header">时段 / 场地</div>
+    <!-- 核心日历矩阵看板表格 -->
+    <div v-loading="loading" class="matrix-grid-scroll-wrap">
+      <div v-if="matrixData?.venues?.length" class="matrix-board">
+        <!-- 矩阵表头: 各场地信息 -->
+        <div class="board-row header-row">
+          <div class="board-cell time-col-header">
+            <el-icon><Clock /></el-icon>
+            <span>时段 \ 场地</span>
+          </div>
           <div 
             v-for="v in matrixData.venues" 
             :key="v.venueId" 
-            class="matrix-cell venue-header"
+            class="board-cell venue-col-header"
           >
-            <div class="venue-name" :title="v.venueName">{{ v.venueName }}</div>
-            <div class="venue-sub">
-              <span class="category-tag">{{ v.categoryName }}</span>
-              <span class="price-tag">￥{{ v.pricePerHour }}/h</span>
+            <div class="v-name" :title="v.venueName">{{ v.venueName }}</div>
+            <div class="v-tags">
+              <span class="v-category-badge">{{ v.categoryName }}</span>
+              <span class="v-price-badge">￥{{ v.pricePerHour }}/h</span>
             </div>
           </div>
         </div>
 
-        <!-- 表体：每行对应一个时段 (09:00~22:00) -->
+        <!-- 矩阵各时段行 (09:00 ~ 22:00) -->
         <div 
           v-for="(slotTime, sIdx) in matrixData.timeSlots" 
           :key="slotTime" 
-          class="matrix-row body-row"
+          class="board-row data-row"
+          :class="{ 'current-hour-row': isCurrentHourSlot(slotTime) }"
         >
-          <!-- 左侧时段时间标签 -->
-          <div class="matrix-cell time-label">
-            <el-icon><Clock /></el-icon>
-            <span>{{ slotTime }}</span>
+          <!-- 左侧固定时段列 -->
+          <div class="board-cell time-col-label">
+            <span v-if="isCurrentHourSlot(slotTime)" class="current-indicator-dot"></span>
+            <span class="time-text">{{ slotTime }}</span>
           </div>
 
-          <!-- 各场地的该时段格子 -->
+          <!-- 各场地对应格子 -->
           <div 
             v-for="venue in matrixData.venues" 
             :key="venue.venueId + '_' + slotTime"
-            class="matrix-cell slot-cell"
+            class="board-cell slot-cell glow-on-hover"
             :class="getSlotClass(venue.slots[sIdx])"
             @click="handleSlotClick(venue, venue.slots[sIdx], slotTime)"
           >
-            <div class="slot-content">
+            <div class="slot-inner">
+              <!-- 场地维护 -->
               <template v-if="venue.venueStatus === 0 || venue.slots[sIdx]?.status === 3">
-                <span class="text-status">维护</span>
+                <span class="status-title text-maint">维护中</span>
               </template>
+
+              <!-- 我的预约 -->
               <template v-else-if="venue.slots[sIdx]?.isMine">
-                <span class="text-status mine-text">
-                  <el-icon><Check /></el-icon> 我的
-                </span>
-                <span v-if="venue.slots[sIdx]?.verifyCode" class="verify-code-badge">
-                  码:{{ venue.slots[sIdx].verifyCode }}
-                </span>
+                <div class="mine-badge-wrap">
+                  <span class="status-title text-mine">
+                    <el-icon><Check /></el-icon> 我的预约
+                  </span>
+                  <span v-if="venue.slots[sIdx]?.verifyCode" class="mini-verify-code">
+                    码: {{ venue.slots[sIdx].verifyCode }}
+                  </span>
+                </div>
               </template>
+
+              <!-- 已被预约 -->
               <template v-else-if="venue.slots[sIdx]?.status === 2">
-                <span class="text-status">已约</span>
+                <span class="status-title text-booked">已售出</span>
               </template>
+
+              <!-- 待支付锁定中 (Redis 锁) -->
               <template v-else-if="venue.slots[sIdx]?.status === 1">
-                <span class="text-status pending-text">
-                  <el-icon><Lock /></el-icon> 锁定时段
-                </span>
+                <div class="pending-badge-wrap">
+                  <el-icon class="lock-icon"><Lock /></el-icon>
+                  <span class="status-title text-pending">时段锁定中</span>
+                </div>
               </template>
+
+              <!-- 空闲可约 (默认) -->
               <template v-else>
-                <span class="text-status free-text">可预约</span>
-                <span class="price-mini">￥{{ venue.pricePerHour }}</span>
+                <span class="status-title text-free">立即预约</span>
+                <span class="slot-price-hint">￥{{ venue.pricePerHour }}</span>
               </template>
             </div>
           </div>
@@ -132,14 +162,26 @@ const loading = ref(false)
 
 const isToday = computed(() => selectedDate.value === dayjs().format('YYYY-MM-DD'))
 
+const dayOfWeekText = computed(() => {
+  const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return days[dayjs(selectedDate.value).day()]
+})
+
 const disabledDate = (time) => {
   return dayjs(time).isBefore(dayjs().startOf('day'))
+}
+
+function isCurrentHourSlot(slotTime) {
+  if (!isToday.value) return false
+  const startHour = parseInt(slotTime.split(':')[0])
+  const currentHour = dayjs().hour()
+  return startHour === currentHour
 }
 
 function changeDate(days) {
   const next = dayjs(selectedDate.value).add(days, 'day')
   if (next.isBefore(dayjs().startOf('day'))) {
-    ElMessage.info('不能查看过去的日期')
+    ElMessage.info('不能预约过去的日期')
     return
   }
   selectedDate.value = next.format('YYYY-MM-DD')
@@ -148,6 +190,11 @@ function changeDate(days) {
 
 function resetToToday() {
   selectedDate.value = dayjs().format('YYYY-MM-DD')
+  fetchMatrixData()
+}
+
+function selectCategory(id) {
+  selectedCategoryId.value = id
   fetchMatrixData()
 }
 
@@ -185,7 +232,7 @@ function getSlotClass(slot) {
 
 function handleSlotClick(venue, slot, timeSlot) {
   if (venue.venueStatus === 0 || slot.status === 3) {
-    ElMessage.warning('该场地此时间段正在进行检修维护，暂不可预约')
+    ElMessage.warning('该场地当前正在进行专业地胶/灯光检修维护')
     return
   }
   if (slot.isMine) {
@@ -199,15 +246,15 @@ function handleSlotClick(venue, slot, timeSlot) {
     return
   }
   if (slot.status === 2) {
-    ElMessage.info('该时段已被他人预约')
+    ElMessage.info('该时段已被他人预约，请选择其他空闲绿色时段')
     return
   }
   if (slot.status === 1) {
-    ElMessage.info('该时段当前正在被其他用户下单锁定中（15分钟超时将自动释放）')
+    ElMessage.info('该时段当前由其他用户在 Redis 中预占支付中（15分钟未付将自动释放）')
     return
   }
 
-  // 可预约状态
+  // 空闲可选
   emit('select-slot', {
     venue,
     timeSlot,
@@ -228,78 +275,109 @@ defineExpose({
 
 <style scoped>
 .slot-matrix-container {
-  padding: 20px;
-  border-radius: 14px;
+  padding: 24px;
+  border-radius: 20px;
+  background: #ffffff;
 }
 
-.matrix-header {
+.matrix-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
-.date-controls {
+.date-navigator {
   display: flex;
   align-items: center;
 }
 
-.status-legend {
+.status-legend-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 13px;
-  color: #475569;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.legend-item {
+.legend-chip {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.badge {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  display: inline-block;
-}
-
-.badge.available { background-color: #10b981; }
-.badge.pending { background-color: #f59e0b; }
-.badge.booked { background-color: #ef4444; }
-.badge.mine { background-color: #8b5cf6; }
-.badge.maintenance { background-color: #94a3b8; }
-
-.category-tabs {
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tab-label {
   font-size: 13px;
-  color: #64748b;
+  color: #475569;
   font-weight: 500;
 }
 
-.matrix-grid-wrapper {
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.dot-available { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
+.dot-pending { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+.dot-booked { background: #ef4444; }
+.dot-mine { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.5); }
+.dot-maint { background: #cbd5e1; }
+
+.category-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filter-caption {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pills-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.matrix-filter-pill {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.matrix-filter-pill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.matrix-filter-pill.active {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+}
+
+.matrix-grid-scroll-wrap {
   overflow-x: auto;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 14px;
   background: #ffffff;
 }
 
-.matrix-table {
-  min-width: 780px;
+.matrix-board {
+  min-width: 820px;
   display: flex;
   flex-direction: column;
 }
 
-.matrix-row {
+.board-row {
   display: flex;
 }
 
@@ -308,10 +386,10 @@ defineExpose({
   border-bottom: 2px solid #e2e8f0;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 10;
 }
 
-.matrix-cell {
+.board-cell {
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
@@ -321,139 +399,172 @@ defineExpose({
   border-right: 1px solid #f1f5f9;
 }
 
-.time-header, .time-label {
-  width: 130px;
-  min-width: 130px;
+.time-col-header, .time-col-label {
+  width: 136px;
+  min-width: 136px;
   background: #f8fafc;
-  font-weight: 600;
-  color: #334155;
   border-right: 2px solid #e2e8f0;
+  position: sticky;
+  left: 0;
+  z-index: 5;
 }
 
-.time-label {
+.time-col-header {
+  flex-direction: row;
+  gap: 6px;
+  font-weight: 700;
+  color: #334155;
+  font-size: 13px;
+}
+
+.time-col-label {
   flex-direction: row;
   gap: 6px;
   font-size: 12px;
   color: #64748b;
+  font-weight: 600;
+  font-family: monospace;
 }
 
-.venue-header {
+.current-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4f46e5;
+  animation: radarPulse 1.5s infinite;
+}
+
+.current-hour-row {
+  background-color: #f5f3ff !important;
+}
+
+.venue-col-header {
   flex: 1;
-  min-width: 120px;
+  min-width: 130px;
 }
 
-.venue-name {
+.v-name {
   font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
+  font-weight: 800;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 130px;
+  max-width: 140px;
 }
 
-.venue-sub {
+.v-tags {
   margin-top: 4px;
   display: flex;
   gap: 6px;
   align-items: center;
 }
 
-.category-tag {
+.v-category-badge {
   font-size: 11px;
-  background: #e0e7ff;
-  color: #4338ca;
-  padding: 1px 5px;
+  background: #ede9fe;
+  color: #6366f1;
+  font-weight: 600;
+  padding: 1px 6px;
   border-radius: 4px;
 }
 
-.price-tag {
+.v-price-badge {
   font-size: 11px;
   color: #059669;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.body-row {
+.data-row {
   border-bottom: 1px solid #f1f5f9;
   transition: background 0.15s ease;
 }
 
-.body-row:hover {
-  background-color: #fafafa;
-}
-
 .slot-cell {
   flex: 1;
-  min-width: 120px;
-  min-height: 48px;
+  min-width: 130px;
+  min-height: 52px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 4px;
+  margin: 2px;
 }
 
-.slot-content {
+.slot-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
 
-.text-status {
+.status-title {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.price-mini {
-  font-size: 11px;
-  opacity: 0.8;
+.slot-price-hint {
+  font-size: 10px;
+  opacity: 0.85;
 }
 
-/* 状态色块定制 */
+/* 各状态色阶升级 */
 .slot-available {
   background-color: #ecfdf5;
   color: #065f46;
+  border: 1px solid #a7f3d0;
 }
 .slot-available:hover {
-  background-color: #10b981;
+  background: #10b981;
   color: #ffffff;
-  transform: scale(0.98);
-  border-radius: 6px;
+  transform: scale(0.97);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  border-color: #10b981;
 }
-.slot-available:hover .price-mini {
+.slot-available:hover .slot-price-hint {
   color: #ffffff;
 }
 
 .slot-pending {
   background-color: #fffbeb;
   color: #b45309;
+  border: 1px solid #fde68a;
   cursor: not-allowed;
+}
+.pending-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.lock-icon {
+  font-size: 12px;
 }
 
 .slot-booked {
   background-color: #fef2f2;
-  color: #b91c1c;
+  color: #991b1b;
+  border: 1px solid #fecaca;
   cursor: not-allowed;
 }
 
 .slot-mine {
-  background-color: #f5f3ff;
-  color: #6d28d9;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  color: #5b21b6;
   border: 1.5px solid #8b5cf6;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.2);
 }
-.slot-mine:hover {
-  background-color: #ede9fe;
-}
-.verify-code-badge {
+.mini-verify-code {
   font-size: 10px;
   background: #7c3aed;
   color: #ffffff;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: monospace;
 }
 
 .slot-maintenance {
   background-color: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
+  border: 1px dashed #cbd5e1;
 }
 </style>

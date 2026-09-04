@@ -1,21 +1,85 @@
 <template>
   <div class="home-container">
-    <!-- Hero Banner -->
-    <div class="hero-section card-shadow">
-      <div class="hero-content">
-        <el-tag effect="dark" type="primary" class="hero-badge">智能时段预约 · 防冲突防超卖</el-tag>
-        <h1 class="hero-title">SmartSlot 智能场馆与时段调度系统</h1>
-        <p class="hero-desc">
-          采用组件化日历时段矩阵，支持羽毛球、网球、篮球及会议空间分秒级精准预约与 6 位无感核销。
-        </p>
-        <div class="hero-actions">
-          <el-button type="primary" size="large" @click="$router.push('/matrix')">
-            进入日历时段矩阵选场
-            <el-icon class="el-icon--right"><Calendar /></el-icon>
+    <!-- 顶部状态指示胶囊 (Landing.love 灵感) -->
+    <div class="top-status-ticker">
+      <div class="ticker-pill">
+        <span class="live-dot"></span>
+        <span class="ticker-text"><strong>SmartSlot 实时调度中</strong>：全馆支持 13 个标准时段 · Redis 原子预占锁保障 0 冲突 0 超卖</span>
+        <el-tag size="small" type="success" effect="light" class="shimmer-badge">毫秒级同步</el-tag>
+      </div>
+    </div>
+
+    <!-- 核心 Bento 网格展台 (Land-book & Awwwards 灵感) -->
+    <div class="bento-hero-grid">
+      <!-- 1. 主推王牌场地巨卡 (占 2/3 宽度) -->
+      <div class="bento-card bento-feature card-shadow" @click="$router.push('/matrix?categoryId=1')">
+        <div class="feature-bg-image" style="background-image: url('https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=1200&auto=format&fit=crop&q=80');"></div>
+        <div class="feature-overlay"></div>
+        <div class="feature-content">
+          <div class="badge-row">
+            <span class="featured-chip shimmer-badge">🔥 热门主推场馆</span>
+            <span class="rating-chip">★ 4.98 国际赛事级</span>
+          </div>
+          <h2 class="feature-title">羽毛球 1 号场 · 奥运专业防滑地胶</h2>
+          <p class="feature-desc">全馆配置进口抗疲劳龙骨减震结构与 300 Lux 漫反射无眩晕球场灯光，支持小时级精准预约。</p>
+          <div class="feature-footer">
+            <div class="price-box">
+              <span class="currency">￥</span>
+              <span class="number">60.00</span>
+              <span class="unit">/ 小时</span>
+            </div>
+            <el-button type="primary" size="large" class="feature-btn">
+              即刻进入时段矩阵选场
+              <el-icon class="el-icon--right"><ArrowRight /></el-icon>
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 右侧 Bento 指标卡：实时场馆利用看板 (占 1/3 宽度) -->
+      <div class="bento-card bento-stats card-shadow">
+        <div class="stats-header">
+          <span class="sub-label">实时运营状态</span>
+          <span class="badge-live">LIVE</span>
+        </div>
+        <div class="occupancy-wrap">
+          <div class="occupancy-number">76<small>%</small></div>
+          <div class="occupancy-meta">
+            <div class="meta-title">今日高峰预约率</div>
+            <div class="meta-desc">黄金时段(18:00-21:00)紧张</div>
+          </div>
+        </div>
+        <el-divider style="margin: 14px 0;" />
+        <div class="fast-action-box">
+          <div class="hint-text">💡 建议预定非高峰时段 (13:00~17:00) 可享更佳静谧体验</div>
+          <el-button size="default" style="width: 100%; margin-top: 10px;" @click="$router.push('/matrix')">
+            查看今日全时段看板
           </el-button>
-          <el-button size="large" @click="scrollToVenues">
-            浏览场馆详情
-          </el-button>
+        </div>
+      </div>
+
+      <!-- 3. 右下 Bento 特性卡：全天候硬件承诺 -->
+      <div class="bento-card bento-hardware card-shadow">
+        <div class="hw-item">
+          <div class="hw-icon"><el-icon><Sunny /></el-icon></div>
+          <div class="hw-text">
+            <strong>恒温 22℃</strong>
+            <span>全天候新风循环系统</span>
+          </div>
+        </div>
+        <div class="hw-item">
+          <div class="hw-icon"><el-icon><Lock /></el-icon></div>
+          <div class="hw-text">
+            <strong>Redis 锁预占</strong>
+            <span>15分钟专属支付保护</span>
+          </div>
+        </div>
+        <div class="hw-item">
+          <div class="hw-icon"><el-icon><Key /></el-icon></div>
+          <div class="hw-text">
+            <strong>6位专属码</strong>
+            <span>到场前台扫码秒核销</span>
+          </div>
         </div>
       </div>
     </div>
@@ -28,7 +92,7 @@
           :class="{ active: selectedCategoryId === null }"
           @click="selectCategory(null)"
         >
-          全部运动场馆
+          全部场馆 ({{ venues.length }})
         </span>
         <span 
           v-for="c in categories" 
@@ -44,7 +108,7 @@
       <div class="search-input">
         <el-input 
           v-model="keyword" 
-          placeholder="搜索场地名称或设施..." 
+          placeholder="搜索场馆名称、特色设施..." 
           clearable 
           @input="fetchVenues"
         >
@@ -53,44 +117,49 @@
       </div>
     </div>
 
-    <!-- 场地卡片网格 -->
+    <!-- 场地精选网格 (21st.dev / Lapa Ninja 灵感) -->
     <div v-loading="loading" class="venues-grid">
       <div 
         v-for="v in venues" 
         :key="v.id" 
-        class="venue-card-item card-shadow"
+        class="venue-card-item card-shadow glow-on-hover"
       >
         <div class="venue-img-wrap">
-          <img :src="v.coverImage || 'https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=800'" :alt="v.name" />
+          <img :src="v.coverImage || 'https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=800'" :alt="v.name" loading="lazy" />
+          <div class="img-gradient"></div>
           <span class="category-chip">{{ v.categoryName }}</span>
+          <span class="capacity-chip"><el-icon><User /></el-icon> 容纳{{ v.capacity }}人</span>
         </div>
 
         <div class="venue-info">
           <div class="venue-name-row">
             <h3 class="name">{{ v.name }}</h3>
-            <span class="price">￥{{ v.pricePerHour }}<small>/小时</small></span>
+            <div class="price">
+              <span class="p-symbol">￥</span>
+              <span class="p-num">{{ v.pricePerHour }}</span>
+              <small>/h</small>
+            </div>
           </div>
 
-          <p class="desc">{{ v.description || '标准国际专业设施，全天候恒温与优质照明。' }}</p>
+          <p class="desc">{{ v.description || '配置国际标准减震防滑地胶与专业柔光照明体系。' }}</p>
 
           <div class="facility-tags">
-            <el-tag 
-              v-for="f in (v.facilities ? v.facilities.split(',') : ['专业防滑'])" 
+            <span 
+              v-for="f in (v.facilities ? v.facilities.split(',') : ['专业防滑', '独立空调'])" 
               :key="f" 
-              size="small" 
-              type="info"
+              class="facility-pill"
             >
               {{ f }}
-            </el-tag>
+            </span>
           </div>
 
           <div class="card-footer">
             <span class="open-time">
-              <el-icon><Clock /></el-icon> {{ v.openTime }} - {{ v.closeTime }}
+              <el-icon><Clock /></el-icon> {{ v.openTime }} ~ {{ v.closeTime }}
             </span>
             <el-button 
               type="primary" 
-              plain 
+              class="book-btn shimmer-badge" 
               size="small" 
               @click="$router.push(`/matrix?categoryId=${v.categoryId}`)"
             >
@@ -105,7 +174,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Calendar, Search, Clock } from '@element-plus/icons-vue'
+import { ArrowRight, Search, Clock, User, Sunny, Lock, Key } from '@element-plus/icons-vue'
 import { getCategories, getVenues } from '@/api/venue'
 
 const categories = ref([])
@@ -142,10 +211,6 @@ function selectCategory(id) {
   fetchVenues()
 }
 
-function scrollToVenues() {
-  document.getElementById('venue-list-anchor')?.scrollIntoView({ behavior: 'smooth' })
-}
-
 onMounted(() => {
   loadInitData()
 })
@@ -153,48 +218,273 @@ onMounted(() => {
 
 <style scoped>
 .home-container {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 20px 24px 60px;
 }
 
-.hero-section {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-  border-radius: 16px;
-  padding: 48px 40px;
-  color: #ffffff;
-  margin-bottom: 32px;
-  border: none;
+/* 顶部状态胶囊 */
+.top-status-ticker {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
 }
 
-.hero-badge {
+.ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.ticker-text {
   font-size: 13px;
-  margin-bottom: 12px;
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
+  color: #334155;
 }
 
-.hero-title {
-  font-size: 36px;
+/* Bento Hero Grid (Awwwards 风格异构网格) */
+.bento-hero-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 20px;
+  margin-bottom: 36px;
+}
+
+.bento-card {
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bento-feature {
+  grid-row: span 2;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 40px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.feature-bg-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-feature:hover .feature-bg-image {
+  transform: scale(1.04);
+}
+
+.feature-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 70%, rgba(15, 23, 42, 0.98) 100%);
+}
+
+.feature-content {
+  position: relative;
+  z-index: 2;
+}
+
+.badge-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.featured-chip {
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.rating-chip {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.feature-title {
+  font-size: 28px;
   font-weight: 800;
   line-height: 1.25;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   letter-spacing: -0.5px;
 }
 
-.hero-desc {
-  font-size: 16px;
-  opacity: 0.85;
-  max-width: 680px;
-  margin-bottom: 28px;
+.feature-desc {
+  font-size: 14px;
+  color: #cbd5e1;
+  max-width: 580px;
   line-height: 1.6;
+  margin-bottom: 24px;
 }
 
-.hero-actions {
+.feature-footer {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
 }
 
+.price-box {
+  display: flex;
+  align-items: baseline;
+}
+
+.price-box .currency {
+  font-size: 20px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.price-box .number {
+  font-size: 36px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -1px;
+}
+
+.price-box .unit {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-left: 4px;
+}
+
+.feature-btn {
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+}
+
+/* Bento Stats Card */
+.bento-stats {
+  background: #ffffff;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sub-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.badge-live {
+  font-size: 11px;
+  font-weight: 800;
+  color: #10b981;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.occupancy-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.occupancy-number {
+  font-size: 48px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -2px;
+}
+
+.occupancy-number small {
+  font-size: 24px;
+  color: #4f46e5;
+}
+
+.meta-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.meta-desc {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Bento Hardware Card */
+.bento-hardware {
+  background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 12px;
+}
+
+.hw-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hw-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.hw-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.hw-text strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.hw-text span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* 筛选工具栏 */
 .filter-bar {
   display: flex;
   justify-content: space-between;
@@ -206,58 +496,59 @@ onMounted(() => {
 
 .category-pills {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .pill-item {
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 8px 18px;
+  border-radius: 999px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #475569;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pill-item:hover {
   background: #f1f5f9;
-  color: #1e293b;
+  color: #0f172a;
+  transform: translateY(-1px);
 }
 
 .pill-item.active {
   background: #4f46e5;
   color: #ffffff;
   border-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .search-input {
-  width: 280px;
+  width: 300px;
 }
 
+/* 场地卡片网格 */
 .venues-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 24px;
 }
 
 .venue-card-item {
-  border-radius: 14px;
+  border-radius: 18px;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
   background: #ffffff;
 }
 
 .venue-card-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
 }
 
 .venue-img-wrap {
   position: relative;
-  height: 200px;
+  height: 220px;
   overflow: hidden;
 }
 
@@ -265,59 +556,86 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.4s ease;
 }
 
 .venue-card-item:hover .venue-img-wrap img {
-  transform: scale(1.05);
+  transform: scale(1.06);
+}
+
+.img-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(15,23,42,0.6) 100%);
 }
 
 .category-chip {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  left: 14px;
   background: rgba(15, 23, 42, 0.75);
   color: #ffffff;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
-  backdrop-filter: blur(4px);
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+
+.capacity-chip {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
 }
 
 .venue-info {
-  padding: 20px;
+  padding: 22px;
 }
 
 .venue-name-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .venue-name-row .name {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: #0f172a;
 }
 
 .venue-name-row .price {
-  font-size: 20px;
-  font-weight: 800;
   color: #4f46e5;
+  font-weight: 900;
+}
+
+.venue-name-row .price .p-symbol {
+  font-size: 14px;
+}
+
+.venue-name-row .price .p-num {
+  font-size: 22px;
 }
 
 .venue-name-row .price small {
   font-size: 12px;
   color: #64748b;
-  font-weight: normal;
+  font-weight: 500;
 }
 
 .desc {
   font-size: 13px;
   color: #64748b;
-  line-height: 1.5;
-  margin-bottom: 12px;
+  line-height: 1.6;
+  margin-bottom: 14px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -328,14 +646,23 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.facility-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid #f1f5f9;
 }
 
@@ -345,5 +672,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.book-btn {
+  border-radius: 8px;
+  font-weight: 700;
+  padding: 8px 16px;
+}
+
+@media (max-width: 900px) {
+  .bento-hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .bento-feature {
+    grid-row: auto;
+  }
 }
 </style>

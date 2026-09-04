@@ -1,122 +1,169 @@
 <template>
   <el-drawer
     v-model="visible"
-    title="确认场地预约与时段锁定"
-    size="420px"
+    title="场馆时段预约与锁定"
+    size="460px"
     :before-close="handleClose"
+    class="custom-booking-drawer"
   >
     <div v-if="slotData" class="drawer-content">
-      <!-- 场地信息卡片 -->
-      <div class="venue-card card-shadow">
-        <div class="venue-title">{{ slotData.venue?.name || slotData.venue?.venueName }}</div>
-        <div class="venue-meta">
-          <el-tag size="small" type="primary">{{ slotData.venue?.categoryName || '标准运动场地' }}</el-tag>
-          <span class="price-text">￥{{ slotData.price }} / 小时</span>
+      <!-- 场地信息拟物化卡片 (21st.dev 灵感) -->
+      <div class="ticket-preview-card card-shadow">
+        <div class="ticket-header">
+          <div class="t-category-badge">{{ slotData.venue?.categoryName || '运动场地' }}</div>
+          <div class="t-price">￥{{ slotData.price }}<small>/小时</small></div>
         </div>
-        <el-divider style="margin: 12px 0;" />
-        <div class="detail-item">
-          <span class="label">预约日期：</span>
-          <span class="val">{{ slotData.date }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">预约时段：</span>
-          <span class="val highlight">{{ slotData.timeSlot }}</span>
+        <h3 class="t-title">{{ slotData.venue?.name || slotData.venue?.venueName }}</h3>
+        
+        <div class="t-meta-grid">
+          <div class="meta-cell">
+            <span class="m-label">预约日期</span>
+            <span class="m-val">{{ slotData.date }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="m-label">入场时段</span>
+            <span class="m-val highlight">{{ slotData.timeSlot }}</span>
+          </div>
         </div>
       </div>
 
-      <!-- 提示信息 -->
-      <el-alert
-        title="防超卖提示: 提交后系统将通过 Redis 预占该时段 15 分钟，请在时限内完成支付。"
-        type="warning"
-        :closable="false"
-        show-icon
-        style="margin: 16px 0;"
-      />
+      <!-- 防超卖与分布式锁机制提示 (带呼吸感) -->
+      <div class="lock-mechanism-tip">
+        <div class="tip-icon"><span class="live-dot"></span></div>
+        <div class="tip-body">
+          <strong>Redis 实时锁定时段：</strong>
+          <span>提交后该时段将在集群中原子锁定 15 分钟，其他用户无法重复抢占，超时未支付将自动回滚释放。</span>
+        </div>
+      </div>
 
-      <!-- 预约联系表单 (带 JSR-303 前端联动校验) -->
+      <!-- 联系人表单 (带 JSR-303 前端联动校验) -->
       <el-form
         ref="formRef"
         :model="formData"
         :rules="formRules"
         label-position="top"
-        class="booking-form"
+        class="booking-interactive-form"
       >
-        <el-form-item label="使用者姓名" prop="contactName">
-          <el-input v-model="formData.contactName" placeholder="请输入预约联系人姓名" />
+        <el-form-item label="使用人姓名" prop="contactName">
+          <el-input 
+            v-model="formData.contactName" 
+            placeholder="请输入使用人姓名" 
+            size="large"
+          >
+            <template #prefix><el-icon><User /></el-icon></template>
+          </el-input>
         </el-form-item>
-        <el-form-item label="联系手机号" prop="contactPhone">
-          <el-input v-model="formData.contactPhone" placeholder="请输入11位中国大陆手机号码" maxlength="11" />
+
+        <el-form-item label="联系电话" prop="contactPhone">
+          <el-input 
+            v-model="formData.contactPhone" 
+            placeholder="请输入 11 位手机号码" 
+            maxlength="11" 
+            size="large"
+          >
+            <template #prefix><el-icon><Iphone /></el-icon></template>
+          </el-input>
         </el-form-item>
       </el-form>
 
-      <!-- 费用汇总与操作按钮 -->
-      <div class="drawer-footer">
-        <div class="total-bar">
-          <span>待支付合计：</span>
-          <span class="total-amount">￥{{ slotData.price }}</span>
+      <!-- 底部费用结算栏 -->
+      <div class="drawer-footer-bar">
+        <div class="amount-summary">
+          <span class="summary-label">合计应付</span>
+          <div class="summary-price">
+            <span class="sym">￥</span>
+            <span class="val">{{ slotData.price }}</span>
+          </div>
         </div>
-        <div class="btn-group">
-          <el-button @click="visible = false">取消</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitBooking">
-            锁定并立即支付
+        <div class="action-buttons">
+          <el-button size="large" @click="visible = false">取消</el-button>
+          <el-button 
+            type="primary" 
+            size="large" 
+            class="submit-lock-btn shimmer-badge" 
+            :loading="submitting" 
+            @click="submitBooking"
+          >
+            锁定并支付
           </el-button>
         </div>
       </div>
     </div>
 
-    <!-- 支付与核销码展示对话框 -->
+    <!-- 拟真数字票据收银台模态框 (21st.dev 风格票根出单) -->
     <el-dialog
       v-model="payDialogVisible"
-      title="模拟收银台"
-      width="380px"
+      title="模拟收银台 · 专属入场凭证"
+      width="420px"
       append-to-body
       :close-on-click-modal="false"
+      class="ticket-dialog"
     >
-      <div v-if="createdOrder" class="pay-modal-content">
-        <div class="order-summary">
-          <div class="sum-row">
-            <span>订单编号：</span>
-            <span class="order-no">{{ createdOrder.orderNo }}</span>
-          </div>
-          <div class="sum-row">
-            <span>应付金额：</span>
-            <span class="pay-amount">￥{{ createdOrder.totalAmount }}</span>
-          </div>
-          <div class="sum-row">
-            <span>我的虚拟余额：</span>
-            <span>￥{{ userStore.userInfo?.balance || 0 }}</span>
-          </div>
-        </div>
-
+      <div v-if="createdOrder" class="checkout-wrapper">
         <template v-if="!paymentSuccess">
+          <div class="pre-pay-summary">
+            <div class="order-id-row">
+              <span>订单流水号：</span>
+              <span class="mono-code">{{ createdOrder.orderNo }}</span>
+            </div>
+            <div class="order-amount-row">
+              <span>支付金额：</span>
+              <span class="big-pay-amount">￥{{ createdOrder.totalAmount }}</span>
+            </div>
+            <div class="balance-status-row">
+              <span>当前可用虚拟余额：</span>
+              <span class="balance-hint">￥{{ userStore.userInfo?.balance || 0 }}</span>
+            </div>
+          </div>
+
           <el-button
             type="success"
             size="large"
-            style="width: 100%; margin-top: 20px;"
+            style="width: 100%; margin-top: 24px; border-radius: 12px; font-weight: 700; height: 48px;"
             :loading="paying"
             @click="handlePay"
           >
-            确认扣款并获取核销码
+            立即扣款并生成 6 位核销票据
           </el-button>
         </template>
 
-        <!-- 支付成功与 6 位核销码展示 -->
-        <div v-else class="success-box">
-          <el-result
-            icon="success"
-            title="预约成功"
-            sub-title="请凭下方 6 位专属核销码前往场馆向前台核销入场"
-          >
-            <template #extra>
-              <div class="verify-code-card">
-                <div class="code-title">专属核销码</div>
-                <div class="code-number">{{ paidOrder?.verifyCode }}</div>
-              </div>
-              <el-button type="primary" @click="finishFlow" style="margin-top: 16px;">
-                完成并查看日程
+        <!-- 支付成功后：拟物化打孔入场票据 (Ticket Stub) -->
+        <div v-else class="ticket-result-zone">
+          <div class="ticket-container card-shadow">
+            <div class="ticket-notch-left"></div>
+            <div class="ticket-notch-right"></div>
+            
+            <div class="ticket-top-section">
+              <div class="ticket-venue-badge">{{ createdOrder.venueName || '专业运动场地' }}</div>
+              <div class="ticket-date-time">{{ createdOrder.bookDate }} ({{ createdOrder.timeSlot }})</div>
+              <div class="ticket-guest-name">持票人: {{ createdOrder.contactName }}</div>
+            </div>
+
+            <div class="ticket-perforation"></div>
+
+            <div class="ticket-bottom-section">
+              <div class="stub-label">到场核验凭证码 (VERIFY CODE)</div>
+              <div class="glowing-code-text">{{ paidOrder?.verifyCode }}</div>
+              <el-button 
+                size="small" 
+                type="primary" 
+                plain 
+                style="margin-top: 10px; border-radius: 20px;"
+                @click="copyVerifyCode(paidOrder?.verifyCode)"
+              >
+                <el-icon><CopyDocument /></el-icon> 复制核销码
               </el-button>
-            </template>
-          </el-result>
+            </div>
+          </div>
+
+          <el-button 
+            type="primary" 
+            size="large" 
+            style="width: 100%; margin-top: 20px; border-radius: 12px;"
+            @click="finishFlow"
+          >
+            完成并前往我的预约行程
+          </el-button>
         </div>
       </div>
     </el-dialog>
@@ -125,6 +172,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { User, Iphone, CopyDocument } from '@element-plus/icons-vue'
 import { lockAndCreateOrder, payOrder } from '@/api/booking'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
@@ -151,16 +199,16 @@ const formData = reactive({
 })
 
 const formRules = {
-  contactName: [{ required: true, message: '请输入使用者姓名', trigger: 'blur' }],
+  contactName: [{ required: true, message: '请输入使用人姓名', trigger: 'blur' }],
   contactPhone: [
-    { required: true, message: '请输入手机号码', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的11位手机号', trigger: 'blur' }
+    { required: true, message: '请输入联系电话', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入合法的 11 位手机号码', trigger: 'blur' }
   ]
 }
 
 function open(data) {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录后再进行场地预约')
+    ElMessage.warning('请先登录会员账号')
     router.push('/login')
     return
   }
@@ -194,7 +242,7 @@ async function submitBooking() {
     createdOrder.value = res
     payDialogVisible.value = true
     visible.value = false
-    ElMessage.success('时段已成功在 Redis 中加锁预占 15 分钟！')
+    ElMessage.success('已成功在 Redis 中锁定该时段（15分钟保护）！')
   } catch (e) {
     console.error(e)
   } finally {
@@ -208,13 +256,22 @@ async function handlePay() {
     const res = await payOrder(createdOrder.value.orderNo)
     paidOrder.value = res
     paymentSuccess.value = true
-    await userStore.fetchCurrentUser() // 同步余额
-    ElMessage.success('模拟支付成功！')
+    await userStore.fetchCurrentUser()
+    ElMessage.success('扣款成功，已生成专属数字票根！')
   } catch (e) {
     console.error(e)
   } finally {
     paying.value = false
   }
+}
+
+function copyVerifyCode(code) {
+  if (!code) return
+  navigator.clipboard.writeText(code).then(() => {
+    ElMessage.success(`核销码 ${code} 已复制到剪贴板！`)
+  }).catch(() => {
+    ElMessage.info(`核销码为: ${code}`)
+  })
 }
 
 function finishFlow() {
@@ -235,122 +292,226 @@ defineExpose({
   height: 100%;
 }
 
-.venue-card {
-  padding: 16px;
-  background: #f8fafc;
+.ticket-preview-card {
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  border-radius: 16px;
+  border: 1px solid #c7d2fe;
 }
 
-.venue-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.venue-meta {
-  margin-top: 6px;
+.ticket-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
 }
 
-.price-text {
-  font-size: 16px;
+.t-category-badge {
+  font-size: 11px;
   font-weight: 700;
+  color: #4f46e5;
+  background: rgba(79, 70, 229, 0.12);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.t-price {
+  font-size: 18px;
+  font-weight: 800;
   color: #4f46e5;
 }
 
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 6px;
-  color: #475569;
+.t-price small {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: normal;
 }
 
-.detail-item .highlight {
-  font-weight: 700;
+.t-title {
+  font-size: 17px;
+  font-weight: 800;
   color: #0f172a;
+  margin-bottom: 14px;
 }
 
-.booking-form {
-  margin-top: 8px;
+.t-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #ffffff;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-.drawer-footer {
+.meta-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.m-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.m-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 2px;
+}
+
+.m-val.highlight {
+  color: #4f46e5;
+}
+
+.lock-mechanism-tip {
+  display: flex;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 18px 0;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.booking-interactive-form {
+  margin-top: 10px;
+}
+
+.drawer-footer-bar {
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid #e2e8f0;
 }
 
-.total-bar {
+.amount-summary {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 14px;
 }
 
-.total-amount {
-  font-size: 22px;
-  font-weight: 800;
-  color: #e11d48;
+.summary-label {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
 }
 
-.btn-group {
+.summary-price {
+  color: #e11d48;
+  font-weight: 900;
+}
+
+.summary-price .sym {
+  font-size: 16px;
+}
+
+.summary-price .val {
+  font-size: 26px;
+}
+
+.action-buttons {
   display: flex;
   gap: 12px;
 }
 
-.btn-group .el-button {
+.action-buttons .el-button {
   flex: 1;
 }
 
-.order-summary {
+.submit-lock-btn {
+  font-weight: 700;
+  background: #4f46e5;
+}
+
+/* 拟真票据模态框 (21st.dev 风格) */
+.checkout-wrapper {
+  padding: 10px 0;
+}
+
+.pre-pay-summary {
   background: #f8fafc;
-  padding: 14px;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 18px;
+  border-radius: 12px;
   font-size: 13px;
 }
 
-.sum-row {
+.order-id-row, .order-amount-row, .balance-status-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
-.sum-row:last-child {
+.balance-status-row {
   margin-bottom: 0;
 }
 
-.pay-amount {
-  font-size: 16px;
-  font-weight: 700;
+.mono-code {
+  font-family: monospace;
+  font-weight: 600;
+  color: #334155;
+}
+
+.big-pay-amount {
+  font-size: 20px;
+  font-weight: 800;
   color: #e11d48;
 }
 
-.order-no {
-  font-family: monospace;
+.balance-hint {
+  font-weight: 700;
+  color: #059669;
 }
 
-.verify-code-card {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: #ffffff;
-  padding: 18px 24px;
-  border-radius: 12px;
+/* 拟真票根展示区 */
+.ticket-container {
+  padding: 24px;
   text-align: center;
-  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
 }
 
-.code-title {
+.ticket-top-section {
+  padding-bottom: 6px;
+}
+
+.ticket-venue-badge {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ticket-date-time {
   font-size: 13px;
-  opacity: 0.9;
-  letter-spacing: 1px;
+  color: #4f46e5;
+  font-weight: 700;
+  margin-top: 4px;
 }
 
-.code-number {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: 6px;
+.ticket-guest-name {
+  font-size: 12px;
+  color: #64748b;
   margin-top: 4px;
+}
+
+.stub-label {
+  font-size: 11px;
+  color: #94a3b8;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.glowing-code-text {
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: #4f46e5;
   font-family: monospace;
+  margin: 6px 0;
+  text-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 </style>
