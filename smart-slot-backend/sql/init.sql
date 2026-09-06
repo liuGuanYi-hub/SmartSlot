@@ -114,15 +114,39 @@ CREATE TABLE `order_review` (
   KEY `idx_venue_id` (`venue_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预约评价表';
 
+-- ----------------------------
+-- 6. 操作审计日志表 (sys_operation_log)
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_operation_log`;
+CREATE TABLE `sys_operation_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT DEFAULT NULL COMMENT '操作人ID',
+  `username` VARCHAR(64) DEFAULT NULL COMMENT '操作人用户名',
+  `role` VARCHAR(32) DEFAULT NULL COMMENT '操作人角色',
+  `module` VARCHAR(64) NOT NULL COMMENT '操作模块',
+  `operation` VARCHAR(128) NOT NULL COMMENT '具体操作描述',
+  `method` VARCHAR(128) NOT NULL COMMENT '请求方法类名与方法名',
+  `params` TEXT COMMENT '操作入参(敏感信息脱敏)',
+  `result` VARCHAR(255) COMMENT '执行结果: SUCCESS / ERROR',
+  `duration_ms` BIGINT NOT NULL DEFAULT 0 COMMENT '耗时(毫秒)',
+  `ip` VARCHAR(64) DEFAULT NULL COMMENT '操作人客户端IP',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_module` (`module`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统操作审计日志表';
+
 -- ============================================================
 -- 初始演示数据导入
 -- ============================================================
 
--- 初始管理员 (admin / 123456) 与测试会员 (user / 123456)
--- 密码明文 123456, 使用常用简单哈希/MD5或后续可兼容SpringSecurity
+-- 初始管理员 (admin / 123456)、店长 (manager / 123456)、核销员 (verifier / 123456) 与测试会员 (user / 123456)
 INSERT INTO `sys_user` (`id`, `username`, `password`, `nickname`, `phone`, `role`, `balance`, `status`) VALUES
 (1, 'admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '系统超级管理员', '13800000000', 'ROLE_ADMIN', 9999.00, 1),
-(2, 'user', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '羽球小旋风', '13912345678', 'ROLE_USER', 600.00, 1);
+(2, 'user', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '羽球小旋风', '13912345678', 'ROLE_USER', 600.00, 1),
+(3, 'manager', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '中心场馆店长', '13812345678', 'ROLE_MANAGER', 5000.00, 1),
+(4, 'verifier', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '前台核销专员', '13898765432', 'ROLE_VERIFIER', 1000.00, 1);
 
 -- 初始场地分类
 INSERT INTO `venue_category` (`id`, `name`, `icon`, `sort`, `status`) VALUES
