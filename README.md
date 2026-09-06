@@ -43,13 +43,15 @@
         |  [异步履约层]     Redisson 延迟队列关单 + STOMP WebSocket 全网毫秒广播  |
         |  [运营管理层]     AOP 操作审计日志 (@LogRecord) + 数据脱敏 (DataMaskUtil) |
         |  [报表引擎层]     Alibaba EasyExcel 流式高性能报表导出引擎              |
+        |  [支付网关层]     支付宝沙箱(RSA2) / 微信支付(HMAC-SHA256)异步Webhook与对账 |
+        |  [IoT 硬件层]     MQTT QoS 1 智能门禁道闸指令下发 + 2.5D 舵机仿真联动台   |
         |  [状态自愈层]     OrderReconciliationTask 僵死订单主动巡检与对账补偿    |
         +-------------------------+-----------------------+-----------------------+
                                   |                       |
                                   v                       v
                +-----------------------------+ +-----------------------------+
                |         Redis 7.0           | |          MySQL 8.0          |
-               |  分布式锁 / 延迟队列 / 缓存  | |     持久化存储 / 事务引擎   |
+               |  分布式锁 / 延迟队列 / 缓存  | | 订单/支付流水/硬件通信日志  |
                +-----------------------------+ +-----------------------------+
 ```
 
@@ -89,6 +91,17 @@
   - `OrderReconciliationTask` 定时与手动触发自愈（`POST /api/orders/reconcile`），确保 Redis 锁与数据库订单绝对强一致。
 - **容器化编排一键交付**：
   - 多阶段构建极简 Docker 镜像，`docker-compose.yml` 一键编排 MySQL 8.0、Redis 7.0、Spring Boot 与 Nginx 完整运行集群。
+
+### 📅 企业级拓展实战：物联网智能道闸门禁联动与多渠道支付网关 (已落地)
+- **物联网智能门禁与物理道闸中控台 (IotGateConsole)**：
+  - **工业级通信标准**：采用标准 `/iot/smartslot/v1/gate/{gateId}/command` 主题与 MQTT QoS 1 报文，搭载设备唯一 MAC、固件版本、开闸保持时长 (5s) 与时间戳签名。
+  - **2.5D 拟物化旋转中控交互**：自研 `IotGateConsole.vue`，实现闸机物理通道三维立体俯视视角、摆臂 0°~90° 伺服舵机旋转转场、LED 实时通行指示灯与门禁 LCD 液晶屏。
+  - **全自动核销联动**：前台核销员核销 6 位凭证码或扫码成功后，后端立即发布 STOMP `GATE_UNLOCK` 事件，中控台自动捕获驱动物理闸机旋转放行，并实时抓包打印高亮 JSON 遥测报文。
+  - **远程应急中控**：支持管理员一键紧急开闸、常开维护模式与通道状态遥测切换。
+- **多渠道支付网关接入与财务对账中心 (PaymentGateway)**：
+  - **主流全渠道收银台**：集成支付宝 (Alipay - 沙箱 RSA2 验签)、微信支付 (WeChat Pay - HMAC-SHA256 签名) 与平台虚拟余额。
+  - **沙箱全链路扫码出票**：提供一键**“📱 模拟手机扫码扣款成功 (触发沙箱异步 Webhook)”**，服务端验证签名、防重幂等入账并自动生成 6 位专属核销码。
+  - **财务对账中枢**：后台提供专属对账中心抽屉，提供总入账营收、支付宝/微信/余额渠道拆解，并与系统订单逐笔撮合比对平账状态。
 
 ---
 
@@ -195,16 +208,16 @@ SmartSlot/
 │       │   │   ├── aspect/                 # AOP 切面 (RBAC鉴权切面、操作审计切面、接口幂等切面)
 │       │   │   ├── common/                 # 统一返回结果 Result、UserContext 上下文
 │       │   │   ├── config/                 # Redis、WebMvc、WebSocket、DatabaseInitializer 配置
-│       │   │   ├── controller/             # REST 控制器 (Venue, BookingOrder, Export, Logs...)
-│       │   │   ├── dto/                    # 请求 DTO 与 EasyExcel 导出模型
-│       │   │   ├── entity/                 # MyBatis-Plus 实体类
+│       │   │   ├── controller/             # REST 控制器 (Venue, BookingOrder, IotGate, PaymentGateway, Logs...)
+│       │   │   ├── dto/                    # 请求 DTO 与 Prepay/EasyExcel 导出模型
+│       │   │   ├── entity/                 # MyBatis-Plus 实体类 (BookingOrder, IotGateLog, PaymentRecord...)
 │       │   │   ├── lock/                   # LuaAtomicLockManager 脚本原子锁管理器
-│       │   │   ├── mapper/                 # MyBatis 数据访问层
+│       │   │   ├── mapper/                 # MyBatis 数据访问层 (IotGateLogMapper, PaymentRecordMapper...)
 │       │   │   ├── queue/                  # Redisson 延迟队列与超时监听服务
-│       │   │   ├── service/                # 业务逻辑契约接口与实现类
+│       │   │   ├── service/                # 业务逻辑契约接口与实现类 (IotGateService, PaymentGatewayService...)
 │       │   │   ├── task/                   # OrderReconciliationTask 对账自愈定时任务
 │       │   │   ├── util/                   # DataMaskUtil 数据脱敏工具类、JwtUtil
-│       │   │   └── vo/                     # 业务视图模型 (SlotMatrixVo, DashboardVo)
+│       │   │   └── vo/                     # 业务视图模型 (SlotMatrixVo, DashboardVo, ReconciliationSummaryVo)
 │       │   └── resources/
 │       │       ├── application.yml         # 开发环境配置
 │       │       └── application-prod.yml    # 生产环境配置 (环境变量外部化隔离)
@@ -214,9 +227,10 @@ SmartSlot/
     ├── nginx.conf                          # 生产级 Nginx 反代与 WebSocket 桥接
     ├── package.json                        # 前端依赖配置
     └── src/
-        ├── api/                            # Axios 封装接口 (auth, venue, booking, admin)
+        ├── api/                            # Axios 封装接口 (auth, venue, booking, admin, iot, pay)
         ├── components/
         │   ├── BookingDrawer.vue           # 拟物化快速提单抽屉
+        │   ├── CashierModal.vue            # 支付宝/微信多渠道扫码收银台与沙箱一键回调
         │   ├── MagneticButton.vue          # 21st.dev 磁吸物理按钮组件
         │   ├── NumberTicker.vue            # 数字平滑补间动画计数器
         │   ├── StatCharts.vue              # ECharts 趋势图、玫瑰图与 7x13 时段坪效热力图
@@ -237,8 +251,9 @@ SmartSlot/
                 ├── AdminDashboard.vue      # 运营数据大屏与 AI 坪效决策卡片
                 ├── AdminLayout.vue         # 管理控制台侧边导航布局
                 ├── AdminLogs.vue           # AOP 操作审计日志查询台
-                ├── AdminOrders.vue         # 订单检索核销、一键自愈与 Excel 流式导出
-                └── AdminVenues.vue         # 场地配置管理与排期表导出
+                ├── AdminOrders.vue         # 订单检索核销、网关财务对账与 Excel 流式导出
+                ├── AdminVenues.vue         # 场地配置管理与排期表导出
+                └── IotGateConsole.vue      # 物联网门禁道闸 2.5D 舵机中控台与 MQTT 抓包台
 ```
 
 ---
