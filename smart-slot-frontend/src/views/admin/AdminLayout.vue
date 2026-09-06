@@ -12,25 +12,37 @@
         router
         class="admin-menu"
       >
-        <el-menu-item index="/admin/dashboard">
+        <el-menu-item index="/admin/dashboard" v-permission="['ROLE_ADMIN', 'ROLE_MANAGER']">
           <el-icon><DataLine /></el-icon>
           <span>运营统计看板</span>
         </el-menu-item>
-        <el-menu-item index="/admin/venues">
+        <el-menu-item index="/admin/venues" v-permission="['ROLE_ADMIN', 'ROLE_MANAGER']">
           <el-icon><Menu /></el-icon>
           <span>场地配置管理</span>
         </el-menu-item>
-        <el-menu-item index="/admin/orders">
+        <el-menu-item index="/admin/orders" v-permission="['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER']">
           <el-icon><List /></el-icon>
           <span>订单检索与核销</span>
         </el-menu-item>
+        <el-menu-item index="/admin/logs" v-permission="['ROLE_ADMIN']">
+          <el-icon><Document /></el-icon>
+          <span>操作审计日志</span>
+        </el-menu-item>
       </el-menu>
 
-      <!-- 快速核销按钮挂载在侧边栏底部 -->
-      <div class="sidebar-verify-box">
-        <el-button type="success" size="default" style="width: 100%;" @click="openQuickVerify">
-          <el-icon><Ticket /></el-icon> 前台扫码核销
-        </el-button>
+      <!-- 角色标识与快速核销按钮挂载在侧边栏底部 -->
+      <div class="sidebar-footer-box">
+        <div class="current-role-badge">
+          <span class="role-desc">当前身份:</span>
+          <el-tag size="small" :type="userStore.isAdmin ? 'danger' : userStore.isManager ? 'warning' : 'success'">
+            {{ userStore.isAdmin ? '超级管理员' : userStore.isManager ? '运营店长' : '核销前台' }}
+          </el-tag>
+        </div>
+        <div class="sidebar-verify-box" v-permission="['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER']">
+          <el-button type="success" size="default" style="width: 100%;" @click="openQuickVerify">
+            <el-icon><Ticket /></el-icon> 前台扫码核销
+          </el-button>
+        </div>
       </div>
     </aside>
 
@@ -46,9 +58,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Platform, DataLine, Menu, List, Ticket } from '@element-plus/icons-vue'
+import { Platform, DataLine, Menu, List, Ticket, Document } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 import VerifyModal from '@/components/VerifyModal.vue'
 
+const userStore = useUserStore()
 const verifyModalRef = ref(null)
 
 function openQuickVerify() {
@@ -87,9 +101,26 @@ function openQuickVerify() {
   background: transparent;
 }
 
-.sidebar-verify-box {
-  padding: 16px;
+.sidebar-footer-box {
   border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+}
+
+.current-role-badge {
+  padding: 12px 16px 4px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.role-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sidebar-verify-box {
+  padding: 12px 16px 16px 16px;
 }
 
 .admin-main {

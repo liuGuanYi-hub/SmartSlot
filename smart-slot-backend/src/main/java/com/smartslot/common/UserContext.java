@@ -31,6 +31,24 @@ public class UserContext {
         return "ROLE_ADMIN".equals(getRole());
     }
 
+    public static boolean isManager() {
+        return "ROLE_MANAGER".equals(getRole()) || isAdmin();
+    }
+
+    public static boolean isVerifier() {
+        return "ROLE_VERIFIER".equals(getRole()) || isManager() || isAdmin();
+    }
+
+    public static boolean hasRole(String... roles) {
+        String currentRole = getRole();
+        if (currentRole == null) return false;
+        if ("ROLE_ADMIN".equals(currentRole)) return true;
+        for (String r : roles) {
+            if (currentRole.equals(r)) return true;
+        }
+        return false;
+    }
+
     public static void clear() {
         CONTEXT.remove();
     }

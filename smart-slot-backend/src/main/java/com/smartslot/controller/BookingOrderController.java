@@ -2,13 +2,17 @@ package com.smartslot.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.smartslot.annotation.Idempotent;
+import com.smartslot.annotation.LogRecord;
+import com.smartslot.annotation.RequiresRoles;
 import com.smartslot.common.PageResult;
 import com.smartslot.common.Result;
 import com.smartslot.common.UserContext;
+import com.smartslot.constant.UserRole;
 import com.smartslot.dto.BookingCreateDto;
 import com.smartslot.dto.ReviewCreateDto;
 import com.smartslot.entity.BookingOrder;
 import com.smartslot.service.BookingOrderService;
+import com.smartslot.util.DataMaskUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,6 +37,7 @@ public class BookingOrderController {
 
     @Operation(summary = "模拟支付订单 (生成 6 位核销码)")
     @Idempotent(message = "订单正在支付中，请勿重复扣款")
+    @LogRecord(module = "在线支付", operation = "订单在线扣款支付")
     @PostMapping("/orders/pay/{orderNo}")
     public Result<BookingOrder> payOrder(@PathVariable String orderNo) {
         Long userId = UserContext.getUserId();
@@ -40,6 +45,7 @@ public class BookingOrderController {
     }
 
     @Operation(summary = "取消预约订单")
+    @LogRecord(module = "订单售后", operation = "用户自主取消预约")
     @PostMapping("/orders/{id}/cancel")
     public Result<Void> cancelOrder(@PathVariable Long id, @RequestParam(required = false) String reason) {
         Long userId = UserContext.getUserId();
@@ -71,12 +77,15 @@ public class BookingOrderController {
     // ==========================================
 
     @Operation(summary = "管理端: 专属 6 位核销码快速核验")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER, UserRole.ROLE_VERIFIER})
+    @LogRecord(module = "订单核销", operation = "前台扫码核验入场")
     @PostMapping("/admin/orders/verify")
     public Result<BookingOrder> verifyOrder(@RequestParam String verifyCode) {
         return Result.success("核销成功，已允许入场消费", orderService.verifyOrder(verifyCode));
     }
 
-    @Operation(summary = "管理端: 订单列表多条件组合分页检索 (MyBatis-Plus 分页插件)")
+    @Operation(summary = "管理端: 订单列表多条件组合分页检索 (MyBatis-Plus 分页插件与合规脱敏)")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER, UserRole.ROLE_VERIFIER})
     @GetMapping("/admin/orders/page")
     public Result<PageResult<BookingOrder>> pageAdminOrders(
             @RequestParam(defaultValue = "1") Long current,
@@ -85,6 +94,15 @@ public class BookingOrderController {
             @RequestParam(required = false) String phone,
             @RequestParam(required = false) Integer status) {
         Page<BookingOrder> page = orderService.pageAdminOrders(new Page<>(current, size), orderNo, phone, status);
+        
+        // 企业级数据合规：前台核销员角色查询时对手机号与联系人执行脱敏
+        if (UserRole.ROLE_VERIFIER.equals(UserContext.getRole())) {
+            page.getRecords().forEach(o -> {
+                o.setContactPhone(DataMaskUtil.maskPhone(o.getContactPhone()));
+                o.setContactName(DataMaskUtil.maskName(o.getContactName()));
+            });
+        }
+        
         return Result.success(new PageResult<>(page.getRecords(), page.getTotal(), page.getCurrent(), page.getSize(), page.getPages()));
     }
 }

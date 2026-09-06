@@ -7,7 +7,17 @@ export const useUserStore = defineStore('user', () => {
   const userInfo = ref(JSON.parse(localStorage.getItem('smart_slot_user') || 'null'))
 
   const isLoggedIn = computed(() => !!token.value)
-  const isAdmin = computed(() => userInfo.value?.role === 'ROLE_ADMIN')
+  const role = computed(() => userInfo.value?.role || 'ROLE_USER')
+  const isAdmin = computed(() => role.value === 'ROLE_ADMIN')
+  const isManager = computed(() => role.value === 'ROLE_MANAGER' || isAdmin.value)
+  const isVerifier = computed(() => role.value === 'ROLE_VERIFIER' || isManager.value || isAdmin.value)
+  const isStaff = computed(() => isAdmin.value || role.value === 'ROLE_MANAGER' || role.value === 'ROLE_VERIFIER')
+
+  function hasRole(roles) {
+    if (!roles || roles.length === 0) return true
+    if (isAdmin.value) return true
+    return roles.includes(role.value)
+  }
 
   async function loginAction(credentials) {
     const res = await apiLogin(credentials)
@@ -49,8 +59,13 @@ export const useUserStore = defineStore('user', () => {
   return {
     token,
     userInfo,
+    role,
     isLoggedIn,
     isAdmin,
+    isManager,
+    isVerifier,
+    isStaff,
+    hasRole,
     loginAction,
     fetchCurrentUser,
     logout

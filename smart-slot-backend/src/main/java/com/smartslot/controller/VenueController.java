@@ -1,9 +1,12 @@
 package com.smartslot.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.smartslot.annotation.LogRecord;
+import com.smartslot.annotation.RequiresRoles;
 import com.smartslot.common.PageResult;
 import com.smartslot.common.Result;
 import com.smartslot.common.UserContext;
+import com.smartslot.constant.UserRole;
 import com.smartslot.dto.VenueSaveDto;
 import com.smartslot.entity.OrderReview;
 import com.smartslot.entity.Venue;
@@ -74,6 +77,7 @@ public class VenueController {
     // ==========================================
 
     @Operation(summary = "管理端: 场地分页查询(支持条件筛选)")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER})
     @GetMapping("/admin/venues/page")
     public Result<PageResult<Venue>> pageAdminVenues(
             @RequestParam(defaultValue = "1") Long current,
@@ -85,6 +89,8 @@ public class VenueController {
     }
 
     @Operation(summary = "管理端: 新增或修改场地")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER})
+    @LogRecord(module = "场地配置", operation = "新增/更新场地信息")
     @PostMapping("/admin/venues")
     public Result<Void> saveOrUpdateVenue(@Valid @RequestBody VenueSaveDto dto) {
         venueService.saveOrUpdateVenue(dto);
@@ -92,6 +98,8 @@ public class VenueController {
     }
 
     @Operation(summary = "管理端: 删除场地")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER})
+    @LogRecord(module = "场地配置", operation = "删除场地")
     @DeleteMapping("/admin/venues/{id}")
     public Result<Void> deleteVenue(@PathVariable Long id) {
         venueService.deleteVenue(id);

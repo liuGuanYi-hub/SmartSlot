@@ -242,4 +242,60 @@ class SmartSlotApplicationTests {
         Assertions.assertEquals(1, successCount.get(), "高并发冲击下必须有且仅有 1 笔成功订单，杜绝超卖");
         Assertions.assertEquals(threadCount - 1, failCount.get(), "其余所有并发请求必须被互斥拒绝");
     }
+
+    @Test
+    @DisplayName("测试企业级数据合规与敏感信息脱敏工具")
+    void testDataMaskUtil() {
+        // 手机号脱敏
+        Assertions.assertEquals("139****5678", com.smartslot.util.DataMaskUtil.maskPhone("13912345678"));
+        Assertions.assertEquals("******", com.smartslot.util.DataMaskUtil.maskPhone("123"));
+
+        // 中文姓名脱敏
+        Assertions.assertEquals("张*", com.smartslot.util.DataMaskUtil.maskName("张三"));
+        Assertions.assertEquals("李*龙", com.smartslot.util.DataMaskUtil.maskName("李小龙"));
+        Assertions.assertEquals("诸**亮", com.smartslot.util.DataMaskUtil.maskName("诸葛孔亮"));
+
+        // 核销码脱敏
+        Assertions.assertEquals("83**01", com.smartslot.util.DataMaskUtil.maskVerifyCode("839201"));
+    }
+
+    @Autowired
+    private com.smartslot.service.OperationLogService operationLogService;
+
+    @Test
+    @DisplayName("测试 RBAC 多角色上下文与操作审计日志归档")
+    void testRbacAndOperationLog() {
+        // 1. 测试 UserContext 角色判断
+        com.smartslot.common.UserContext.set(com.smartslot.common.UserContext.CurrentUserInfo.builder()
+                .userId(888L)
+                .username("test_manager")
+                .role(com.smartslot.constant.UserRole.ROLE_MANAGER)
+                .build());
+
+        Assertions.assertTrue(com.smartslot.common.UserContext.isManager());
+        Assertions.assertTrue(com.smartslot.common.UserContext.isVerifier());
+        Assertions.assertFalse(com.smartslot.common.UserContext.isAdmin());
+        Assertions.assertTrue(com.smartslot.common.UserContext.hasRole(com.smartslot.constant.UserRole.ROLE_MANAGER));
+
+        // 2. 模拟操作审计日志写入
+        com.smartslot.entity.OperationLog log = com.smartslot.entity.OperationLog.builder()
+                .userId(888L)
+                .username("test_manager")
+                .role(com.smartslot.constant.UserRole.ROLE_MANAGER)
+                .module("测试模块")
+                .operation("自动化单元测试操作")
+                .method("SmartSlotApplicationTests#testRbacAndOperationLog")
+                .params("{\"action\":\"test\"}")
+                .result("SUCCESS")
+                .durationMs(15L)
+                .ip("127.0.0.1")
+                .createTime(java.time.LocalDateTime.now())
+                .build();
+
+        boolean saved = operationLogService.save(log);
+        Assertions.assertTrue(saved, "操作审计日志应当成功写入");
+        Assertions.assertNotNull(log.getId(), "审计日志主键 ID 应由自增策略生成");
+
+        com.smartslot.common.UserContext.clear();
+    }
 }

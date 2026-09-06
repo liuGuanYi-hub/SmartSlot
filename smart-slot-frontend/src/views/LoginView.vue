@@ -12,8 +12,10 @@
       <!-- 快速填入演示账号按钮 -->
       <div v-if="!isRegister" class="quick-fill-row">
         <span class="quick-label">快速体验：</span>
-        <el-button size="small" @click="quickFill('user', '123456')">会员账号 (user)</el-button>
-        <el-button size="small" type="primary" plain @click="quickFill('admin', '123456')">管理员 (admin)</el-button>
+        <el-button size="small" @click="quickFill('user', '123456')">会员 (user)</el-button>
+        <el-button size="small" type="primary" plain @click="quickFill('admin', '123456')">超管 (admin)</el-button>
+        <el-button size="small" type="warning" plain @click="quickFill('manager', '123456')">店长 (manager)</el-button>
+        <el-button size="small" type="success" plain @click="quickFill('verifier', '123456')">核销员 (verifier)</el-button>
       </div>
 
       <!-- 表单 (登录模式) -->
@@ -137,8 +139,10 @@ async function handleLogin() {
   try {
     const res = await userStore.loginAction(loginForm)
     ElMessage.success(`欢迎回来，${res.nickname || res.username}！`)
-    if (res.role === 'ROLE_ADMIN') {
+    if (res.role === 'ROLE_ADMIN' || res.role === 'ROLE_MANAGER') {
       router.push('/admin/dashboard')
+    } else if (res.role === 'ROLE_VERIFIER') {
+      router.push('/admin/orders')
     } else {
       router.push('/matrix')
     }
