@@ -125,7 +125,12 @@
         class="venue-card-item card-shadow glow-on-hover"
       >
         <div class="venue-img-wrap">
-          <img :src="v.coverImage || 'https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=800'" :alt="v.name" loading="lazy" />
+          <img 
+            :src="v.coverImage || 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=60'" 
+            :alt="v.name" 
+            loading="lazy" 
+            @error="handleImageError"
+          />
           <div class="img-gradient"></div>
           <span class="category-chip">{{ v.categoryName }}</span>
           <span class="capacity-chip"><el-icon><User /></el-icon> 容纳{{ v.capacity }}人</span>
@@ -211,6 +216,10 @@ async function fetchVenues() {
 function selectCategory(id) {
   selectedCategoryId.value = id
   fetchVenues()
+}
+
+function handleImageError(e) {
+  e.target.src = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=60'
 }
 
 onMounted(() => {

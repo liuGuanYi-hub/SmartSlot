@@ -30,7 +30,6 @@ public class PaymentGatewayController {
     private final PaymentGatewayService paymentGatewayService;
 
     @Operation(summary = "多渠道收银台预下单 (生成支付宝/微信动态二维码)")
-    @Idempotent(message = "正在发起支付预下单，请勿重复提交")
     @PostMapping("/prepay")
     public Result<PrepayResponseDto> prepay(@Valid @RequestBody PrepayRequestDto dto) {
         Long userId = UserContext.getUserId();

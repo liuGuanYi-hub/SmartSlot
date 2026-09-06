@@ -30,6 +30,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         initIotGateLogTable();
         initPaymentRecordTable();
         initRolesAndUsers();
+        fixVenueCoverImages();
     }
 
     private void initOperationLogTable() {
@@ -162,6 +163,16 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.warn("初始化 RBAC 默认用户异常 (若库不可写可忽略): {}", e.getMessage());
+        }
+    }
+
+    private void fixVenueCoverImages() {
+        try {
+            String sql = "UPDATE `venue` SET `cover_image` = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=60' WHERE `id` = 5 OR `cover_image` LIKE '%1505666287802%'";
+            jdbcTemplate.execute(sql);
+            log.info("数据库初始化: 场地封面图片一致性检查修复完毕 (已将 404 图片替换为有效高清图)");
+        } catch (Exception e) {
+            log.warn("检查或更新场地封面图片异常: {}", e.getMessage());
         }
     }
 }
