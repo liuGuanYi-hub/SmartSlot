@@ -67,95 +67,168 @@
       <span>移动端支持左右手势平滑滑动查看所有场地排期</span>
     </div>
 
-    <!-- 核心日历矩阵看板表格 -->
-    <div v-loading="loading" class="matrix-grid-scroll-wrap">
-      <div v-if="matrixData?.venues?.length" class="matrix-board">
-        <!-- 矩阵表头: 各场地信息 -->
-        <div class="board-row header-row">
-          <div class="board-cell time-col-header">
-            <el-icon><Clock /></el-icon>
-            <span>时段 \ 场地</span>
-          </div>
-          <div 
-            v-for="v in matrixData.venues" 
-            :key="v.venueId" 
-            :id="'venue-header-' + v.venueId"
-            class="board-cell venue-col-header"
-            :class="{ 'venue-col-focused': focusedVenueId === v.venueId }"
-          >
-            <div class="v-name" :title="v.venueName">{{ v.venueName }}</div>
-            <div class="v-tags">
-              <span class="v-category-badge">{{ v.categoryName }}</span>
-              <span class="v-price-badge">￥{{ v.pricePerHour }}/h</span>
-            </div>
-            <span v-if="focusedVenueId === v.venueId" class="focus-pulse-tag">已聚焦</span>
-          </div>
-        </div>
-
-        <!-- 矩阵各时段行 (09:00 ~ 22:00) -->
-        <div 
-          v-for="(slotTime, sIdx) in matrixData.timeSlots" 
-          :key="slotTime" 
-          class="board-row data-row"
-          :class="{ 'current-hour-row': isCurrentHourSlot(slotTime) }"
+    <!-- 增加全局多场馆横向滚动提醒与快捷跳转按钮组 -->
+    <div class="matrix-scroll-hint-bar" v-if="matrixData?.venues?.length > 4">
+      <div class="hint-left">
+        <el-icon><Right /></el-icon>
+        <span>已开放 <strong>{{ matrixData.venues.length }}</strong> 个特色运动场馆，可使用右侧按钮快速平滑跳转翻看</span>
+      </div>
+      <div class="hint-right">
+        <button 
+          type="button"
+          class="matrix-nav-btn" 
+          :disabled="!canScrollLeft" 
+          @click="scrollMatrix(-1)"
+          title="向左滚动"
         >
-          <!-- 左侧固定时段列 -->
-          <div class="board-cell time-col-label">
-            <span v-if="isCurrentHourSlot(slotTime)" class="current-indicator-dot"></span>
-            <span class="time-text">{{ slotTime }}</span>
+          <el-icon><ArrowLeft /></el-icon>
+          <span>向左</span>
+        </button>
+        <button 
+          type="button"
+          class="matrix-nav-btn btn-primary-jump" 
+          :disabled="!canScrollRight" 
+          @click="scrollMatrix(1)"
+          title="向右跳转查看更多场馆"
+        >
+          <span>向右跳转更多场馆</span>
+          <el-icon><ArrowRight /></el-icon>
+        </button>
+        <button 
+          type="button"
+          class="matrix-nav-btn" 
+          :disabled="!canScrollRight" 
+          @click="scrollToEnd"
+          title="直达最右侧场馆"
+        >
+          <span>直达末尾</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 核心日历矩阵看板表格容器 (支持浮动左右跳转按钮) -->
+    <div class="matrix-table-container">
+      <!-- 左侧向左回退浮动按钮 (避开左侧 120px 固定时段列) -->
+      <transition name="fade">
+        <div 
+          v-show="canScrollLeft" 
+          class="matrix-edge-jump-btn left-btn" 
+          @click="scrollMatrix(-1)"
+          title="向左回退场馆"
+        >
+          <el-icon :size="16"><ArrowLeft /></el-icon>
+          <span class="jump-text">向左</span>
+        </div>
+      </transition>
+
+      <!-- 核心日历矩阵看板表格 -->
+      <div 
+        ref="scrollWrapRef"
+        v-loading="loading" 
+        class="matrix-grid-scroll-wrap"
+        @scroll="onMatrixScroll"
+      >
+        <div v-if="matrixData?.venues?.length" class="matrix-board">
+          <!-- 矩阵表头: 各场地信息 -->
+          <div class="board-row header-row">
+            <div class="board-cell time-col-header">
+              <el-icon><Clock /></el-icon>
+              <span>时段 \ 场地</span>
+            </div>
+            <div 
+              v-for="v in matrixData.venues" 
+              :key="v.venueId" 
+              :id="'venue-header-' + v.venueId"
+              class="board-cell venue-col-header"
+              :class="{ 'venue-col-focused': focusedVenueId === v.venueId }"
+            >
+              <div class="v-name" :title="v.venueName">{{ v.venueName }}</div>
+              <div class="v-tags">
+                <span class="v-category-badge">{{ v.categoryName }}</span>
+                <span class="v-price-badge">￥{{ v.pricePerHour }}/h</span>
+              </div>
+              <span v-if="focusedVenueId === v.venueId" class="focus-pulse-tag">已聚焦</span>
+            </div>
           </div>
 
-          <!-- 各场地对应格子 -->
+          <!-- 矩阵各时段行 (09:00 ~ 22:00) -->
           <div 
-            v-for="venue in matrixData.venues" 
-            :key="venue.venueId + '_' + slotTime"
-            class="board-cell slot-cell glow-on-hover"
-            :class="[getSlotClass(venue.slots[sIdx]), { 'slot-live-flash': flashingSlotKey === (venue.venueId + '_' + slotTime), 'venue-col-focused-cell': focusedVenueId === venue.venueId }]"
-            @click="handleSlotClick(venue, venue.slots[sIdx], slotTime)"
+            v-for="(slotTime, sIdx) in matrixData.timeSlots" 
+            :key="slotTime" 
+            class="board-row data-row"
+            :class="{ 'current-hour-row': isCurrentHourSlot(slotTime) }"
           >
-            <div class="slot-inner">
-              <!-- 场地维护 -->
-              <template v-if="venue.venueStatus === 0 || venue.slots[sIdx]?.status === 3">
-                <span class="status-title text-maint">维护中</span>
-              </template>
+            <!-- 左侧固定时段列 -->
+            <div class="board-cell time-col-label">
+              <span v-if="isCurrentHourSlot(slotTime)" class="current-indicator-dot"></span>
+              <span class="time-text">{{ slotTime }}</span>
+            </div>
 
-              <!-- 我的预约 -->
-              <template v-else-if="venue.slots[sIdx]?.isMine">
-                <div class="mine-badge-wrap">
-                  <span class="status-title text-mine">
-                    <el-icon><Check /></el-icon> 我的预约
-                  </span>
-                  <span v-if="venue.slots[sIdx]?.verifyCode" class="mini-verify-code">
-                    码: {{ venue.slots[sIdx].verifyCode }}
-                  </span>
-                </div>
-              </template>
+            <!-- 各场地对应格子 -->
+            <div 
+              v-for="venue in matrixData.venues" 
+              :key="venue.venueId + '_' + slotTime"
+              class="board-cell slot-cell glow-on-hover"
+              :class="[getSlotClass(venue.slots[sIdx]), { 'slot-live-flash': flashingSlotKey === (venue.venueId + '_' + slotTime), 'venue-col-focused-cell': focusedVenueId === venue.venueId }]"
+              @click="handleSlotClick(venue, venue.slots[sIdx], slotTime)"
+            >
+              <div class="slot-inner">
+                <!-- 场地维护 -->
+                <template v-if="venue.venueStatus === 0 || venue.slots[sIdx]?.status === 3">
+                  <span class="status-title text-maint">维护中</span>
+                </template>
 
-              <!-- 已被预约 -->
-              <template v-else-if="venue.slots[sIdx]?.status === 2">
-                <span class="status-title text-booked">已售出</span>
-              </template>
+                <!-- 我的预约 -->
+                <template v-else-if="venue.slots[sIdx]?.isMine">
+                  <div class="mine-badge-wrap">
+                    <span class="status-title text-mine">
+                      <el-icon><Check /></el-icon> 我的预约
+                    </span>
+                    <span v-if="venue.slots[sIdx]?.verifyCode" class="mini-verify-code">
+                      券码: {{ venue.slots[sIdx]?.verifyCode }}
+                    </span>
+                  </div>
+                </template>
 
-              <!-- 待支付锁定中 (Redis 锁) -->
-              <template v-else-if="venue.slots[sIdx]?.status === 1">
-                <div class="pending-badge-wrap">
-                  <el-icon class="lock-icon"><Lock /></el-icon>
-                  <span class="status-title text-pending">时段锁定中</span>
-                </div>
-              </template>
+                <!-- 已被预约 (他人) -->
+                <template v-else-if="venue.slots[sIdx]?.status === 2">
+                  <span class="status-title text-booked">已约满</span>
+                </template>
 
-              <!-- 空闲可约 (默认) -->
-              <template v-else>
-                <span class="status-title text-free">立即预约</span>
-                <span class="slot-price-hint">￥{{ venue.pricePerHour }}</span>
-              </template>
+                <!-- 待支付锁定中 (Redis 锁) -->
+                <template v-else-if="venue.slots[sIdx]?.status === 1">
+                  <div class="pending-badge-wrap">
+                    <el-icon class="lock-icon"><Lock /></el-icon>
+                    <span class="status-title text-pending">时段锁定中</span>
+                  </div>
+                </template>
+
+                <!-- 空闲可约 (默认) -->
+                <template v-else>
+                  <span class="status-title text-free">立即预约</span>
+                  <span class="slot-price-hint">￥{{ venue.pricePerHour }}</span>
+                </template>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- 空状态 -->
+        <el-empty v-else description="暂无场地数据或当前分类下无开放场地" />
       </div>
 
-      <!-- 空状态 -->
-      <el-empty v-else description="暂无场地数据或当前分类下无开放场地" />
+      <!-- 右侧向右跳转浮动按钮 (对应用户红框指出的被遮挡右边缘，具备呼吸光晕) -->
+      <transition name="fade">
+        <div 
+          v-show="canScrollRight" 
+          class="matrix-edge-jump-btn right-btn" 
+          @click="scrollMatrix(1)"
+          title="点击向右跳转，查看后续场馆排期"
+        >
+          <span class="jump-text">向右查看</span>
+          <el-icon :size="16"><ArrowRight /></el-icon>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -177,6 +250,56 @@ const loading = ref(false)
 
 const focusedVenueId = ref(null)
 let focusTimeout = null
+
+// 多场馆横向滚动控制与边界状态
+const scrollWrapRef = ref(null)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(true)
+
+function checkScrollable() {
+  nextTick(() => {
+    const el = scrollWrapRef.value
+    if (!el) return
+    canScrollLeft.value = el.scrollLeft > 10
+    canScrollRight.value = el.scrollWidth > el.clientWidth && (el.scrollLeft + el.clientWidth < el.scrollWidth - 10)
+  })
+}
+
+function onMatrixScroll() {
+  checkScrollable()
+}
+
+function scrollMatrix(direction) {
+  const el = scrollWrapRef.value
+  if (!el) return
+  // 一次平滑跳转 3 个场馆 (约 516px) 或容器宽度的 65%
+  const step = Math.max(344, Math.floor(el.clientWidth * 0.65))
+  el.scrollBy({
+    left: direction * step,
+    behavior: 'smooth'
+  })
+  setTimeout(checkScrollable, 400)
+}
+
+function scrollToEnd() {
+  const el = scrollWrapRef.value
+  if (!el) return
+  el.scrollTo({
+    left: el.scrollWidth,
+    behavior: 'smooth'
+  })
+  setTimeout(checkScrollable, 400)
+}
+
+function scrollToStart() {
+  const el = scrollWrapRef.value
+  if (!el) return
+  el.scrollTo({
+    left: 0,
+    behavior: 'smooth'
+  })
+  setTimeout(checkScrollable, 400)
+}
 
 // WebSocket 全网实时协同状态
 const wsConnected = ref(false)
@@ -241,10 +364,12 @@ async function fetchMatrixData() {
       categoryId: selectedCategoryId.value
     })
     matrixData.value = res
+    setTimeout(checkScrollable, 300)
   } catch (e) {
     console.error(e)
   } finally {
     loading.value = false
+    setTimeout(checkScrollable, 350)
   }
 }
 
@@ -410,9 +535,12 @@ onMounted(() => {
   loadCategories()
   fetchMatrixData()
   initWebSocket()
+  window.addEventListener('resize', checkScrollable)
+  setTimeout(checkScrollable, 500)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', checkScrollable)
   stopHeartbeat()
   if (reconnectTimer) clearTimeout(reconnectTimer)
   if (socket) {
@@ -443,7 +571,7 @@ async function focusVenue(venueId) {
   // 3. 计算并平滑横向滚动，将聚焦的场地列滚动至容器中央
   await nextTick()
   const headerEl = document.getElementById('venue-header-' + venueId)
-  const scrollWrap = document.querySelector('.matrix-grid-scroll-wrap')
+  const scrollWrap = scrollWrapRef.value || document.querySelector('.matrix-grid-scroll-wrap')
   if (headerEl && scrollWrap) {
     const wrapRect = scrollWrap.getBoundingClientRect()
     const elRect = headerEl.getBoundingClientRect()
@@ -452,6 +580,7 @@ async function focusVenue(venueId) {
       left: Math.max(0, targetScrollLeft),
       behavior: 'smooth'
     })
+    setTimeout(checkScrollable, 400)
   }
 
   if (focusTimeout) clearTimeout(focusTimeout)
@@ -463,6 +592,9 @@ async function focusVenue(venueId) {
 defineExpose({
   fetchMatrixData,
   focusVenue,
+  scrollMatrix,
+  scrollToEnd,
+  scrollToStart,
   focusedVenueId
 })
 </script>
@@ -568,6 +700,163 @@ defineExpose({
   padding: 0 4px;
 }
 
+.matrix-scroll-hint-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(79, 70, 229, 0.06);
+  border: 1px solid rgba(79, 70, 229, 0.16);
+  border-radius: 10px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.hint-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.hint-left strong {
+  color: #4f46e5;
+  font-weight: 700;
+}
+
+.hint-left code {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.hint-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.matrix-nav-btn:hover:not(:disabled) {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.matrix-nav-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.matrix-nav-btn.btn-primary-jump {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+}
+
+.matrix-nav-btn.btn-primary-jump:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4338ca, #4f46e5);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.5);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.matrix-table-container {
+  position: relative;
+  width: 100%;
+}
+
+.matrix-edge-jump-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.matrix-edge-jump-btn.right-btn {
+  right: -8px;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.65);
+  animation: pulseJumpBtn 2.2s infinite ease-in-out;
+}
+
+.matrix-edge-jump-btn.right-btn:hover {
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.55);
+  background: linear-gradient(135deg, #4338ca, #4f46e5);
+}
+
+.matrix-edge-jump-btn.left-btn {
+  left: 132px; /* 避开左侧 120px 的固定时段列 */
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
+  border: 1.5px solid var(--border-subtle);
+}
+
+.matrix-edge-jump-btn.left-btn:hover {
+  transform: translateY(-50%) scale(1.08);
+  border-color: #6366f1;
+  color: #6366f1;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+}
+
+@keyframes pulseJumpBtn {
+  0%, 100% {
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 4px 22px rgba(99, 102, 241, 0.75), 0 0 0 5px rgba(99, 102, 241, 0.15);
+    transform: translateY(-50%) scale(1.04);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
+}
+
 .matrix-grid-scroll-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -575,16 +864,20 @@ defineExpose({
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   background: var(--card-bg);
+  position: relative;
+  scroll-behavior: smooth;
 }
 
 .matrix-board {
-  min-width: 820px;
+  width: max-content;
+  min-width: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .board-row {
   display: flex;
+  width: 100%;
 }
 
 .header-row {
@@ -603,16 +896,20 @@ defineExpose({
   align-items: center;
   text-align: center;
   border-right: 1px solid var(--border-subtle);
+  box-sizing: border-box;
 }
 
 .time-col-header, .time-col-label {
-  width: 136px;
-  min-width: 136px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   background: var(--card-bg-elevated);
   border-right: 2px solid var(--border-subtle);
   position: sticky;
   left: 0;
-  z-index: 5;
+  z-index: 6;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
 }
 
 .time-col-header {
@@ -621,6 +918,7 @@ defineExpose({
   font-weight: 700;
   color: var(--text-main);
   font-size: 13px;
+  z-index: 12;
 }
 
 .time-col-label {
@@ -645,25 +943,40 @@ defineExpose({
 }
 
 .venue-col-header {
-  flex: 1;
-  min-width: 130px;
+  width: 172px;
+  min-width: 172px;
+  max-width: 172px;
+  flex: 0 0 172px;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  overflow: hidden;
+  text-align: center;
 }
 
 .v-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--text-main);
-  white-space: nowrap;
+  line-height: 1.35;
+  height: 36px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  width: 100%;
+  text-align: center;
+  word-break: break-word;
 }
 
 .v-tags {
-  margin-top: 4px;
+  margin-top: 6px;
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
 }
 
 .v-category-badge {
@@ -673,12 +986,17 @@ defineExpose({
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
 }
 
 .v-price-badge {
   font-size: 11px;
   color: #10b981;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .data-row {
@@ -687,13 +1005,17 @@ defineExpose({
 }
 
 .slot-cell {
-  flex: 1;
-  min-width: 130px;
-  min-height: 52px;
+  width: 172px;
+  min-width: 172px;
+  max-width: 172px;
+  flex: 0 0 172px;
+  min-height: 54px;
+  box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: 4px;
+  border-radius: 6px;
   margin: 2px;
+  overflow: hidden;
 }
 
 .slot-inner {
