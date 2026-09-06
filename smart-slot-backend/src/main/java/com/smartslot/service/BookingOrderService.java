@@ -26,4 +26,6 @@ public interface BookingOrderService extends IService<BookingOrder> {
     Page<BookingOrder> pageAdminOrders(Page<BookingOrder> page, String orderNo, String phone, Integer status);
 
     void addReview(ReviewCreateDto dto, Long userId);
+
+    void handleTimeoutOrder(String orderNo);
 }

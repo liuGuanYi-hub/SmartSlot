@@ -9,7 +9,8 @@ import com.smartslot.dto.ReviewCreateDto;
 import com.smartslot.entity.*;
 import com.smartslot.mapper.*;
 import com.smartslot.service.BookingOrderService;
-import com.smartslot.util.LockManager;
+import com.smartslot.service.OrderDelayQueueService;
+import com.smartslot.util.LuaLockManager;
 import com.smartslot.vo.SlotMatrixVo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +23,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * 预约核心服务实现类
- * 覆盖：缓存/分布式时段锁防超卖、MyBatis-Plus 分页、组件化矩阵数据源
+ * 覆盖：Lua原子时段锁防超卖、Redisson延时队列关单、MyBatis-Plus 分页、组件化矩阵数据源
  */
 @Slf4j
 @Service
@@ -37,7 +39,8 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
     private final VenueCategoryMapper categoryMapper;
     private final SysUserMapper userMapper;
     private final OrderReviewMapper reviewMapper;
-    private final LockManager lockManager;
+    private final LuaLockManager luaLockManager;
+    private final OrderDelayQueueService orderDelayQueueService;
 
     private static final List<String> STANDARD_SLOTS = List.of(
             "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
@@ -98,7 +101,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
                         // 待支付状态，检查是否已过 15 分钟超时时间
                         if (order.getExpireTime() != null && order.getExpireTime().isBefore(now)) {
                             status = 0; // 超时自动失效，恢复空闲
-                            lockManager.unlock(lockKey);
+                            luaLockManager.unlockAtomic(lockKey, "FORCE_UNLOCK");
                         } else {
                             status = 1; // 待支付锁定中
                             if (currentUserId != null && currentUserId.equals(order.getUserId())) {
@@ -114,7 +117,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
                             verifyCode = order.getVerifyCode();
                         }
                     }
-                } else if (lockManager.isLocked(lockKey)) {
+                } else if (luaLockManager.isLocked(lockKey)) {
                     status = 1; // 内存/Redis 临时锁占用中
                 }
 
@@ -163,8 +166,9 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
 
         String lockKey = buildLockKey(dto.getVenueId(), dto.getBookDate(), dto.getTimeSlot());
 
-        // 1. 尝试原子加锁 15 分钟 (900秒)
-        boolean lockSuccess = lockManager.tryLock(lockKey, "UID:" + userId, 900);
+        // 1. 尝试使用 Lua 脚本原子加锁 15 分钟 (900秒)
+        String lockVal = "UID:" + userId;
+        boolean lockSuccess = luaLockManager.tryLockAtomic(lockKey, lockVal, 900);
         if (!lockSuccess) {
             throw new BusinessException("该时段刚刚被他人抢先锁定，请选择其他时段");
         }
@@ -208,6 +212,10 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
                 .build();
 
         save(order);
+
+        // 4. 投递 Redisson / JVM 延时队列，15 分钟未支付自动关单释放库存
+        orderDelayQueueService.sendOrderTimeoutDelay(orderNo, 15, TimeUnit.MINUTES);
+
         log.info("成功锁定并创建预约订单: orderNo={}, userId={}, venueId={}, timeSlot={}",
                 orderNo, userId, dto.getVenueId(), dto.getTimeSlot());
         return order;
@@ -238,7 +246,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
             order.setOrderStatus(3); // 超时自动取消
             order.setCancelReason("支付超时自动取消");
             updateById(order);
-            lockManager.unlock(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()));
+            luaLockManager.unlockAtomic(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()), "FORCE_UNLOCK");
             throw new BusinessException("订单已过 15 分钟支付期限，已被释放");
         }
 
@@ -301,7 +309,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         updateById(order);
 
         // 释放时段锁
-        lockManager.unlock(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()));
+        luaLockManager.unlockAtomic(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()), "FORCE_UNLOCK");
         log.info("订单已成功取消并释放时段: orderNo={}", order.getOrderNo());
     }
 
@@ -404,6 +412,34 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
                 .build();
 
         reviewMapper.insert(review);
+    }
+
+    /**
+     * Redisson 延迟队列消费者自动触发的超时订单关单与时段锁释放
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void handleTimeoutOrder(String orderNo) {
+        BookingOrder order = getOne(new LambdaQueryWrapper<BookingOrder>()
+                .eq(BookingOrder::getOrderNo, orderNo));
+        if (order == null) {
+            log.warn("[延时关单] 订单不存在: orderNo={}", orderNo);
+            return;
+        }
+
+        // 仅待支付状态(orderStatus == 0)执行超时自动关单与时段释放
+        if (order.getOrderStatus() == 0) {
+            order.setOrderStatus(3); // 3: 已取消
+            order.setCancelReason("支付超时(15分钟)，系统自动关闭订单并释放锁");
+            order.setUpdateTime(LocalDateTime.now());
+            updateById(order);
+
+            String lockKey = buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot());
+            luaLockManager.unlockAtomic(lockKey, "FORCE_UNLOCK");
+            log.info("[延时关单] 订单超时成功关单并释放时段锁: orderNo={}, lockKey={}", orderNo, lockKey);
+        } else {
+            log.info("[延时关单] 订单非待支付状态，无需关单: orderNo={}, status={}", orderNo, order.getOrderStatus());
+        }
     }
 
     private void fillOrderDetails(List<BookingOrder> orders) {
