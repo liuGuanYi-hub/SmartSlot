@@ -31,4 +31,10 @@ public interface BookingOrderMapper extends BaseMapper<BookingOrder> {
             "GROUP BY b.venue_id, v.name " +
             "ORDER BY value DESC LIMIT 6")
     List<Map<String, Object>> selectVenuePopularity();
+
+    @Select("SELECT book_date as bookDate, time_slot as timeSlot, COUNT(id) as orderCount " +
+            "FROM booking_order " +
+            "WHERE order_status IN (1, 2) " +
+            "GROUP BY book_date, time_slot")
+    List<Map<String, Object>> selectSlotDistribution();
 }

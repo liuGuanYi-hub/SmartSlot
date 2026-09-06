@@ -29,4 +29,17 @@ public class DashboardVo {
 
     // 各场地预约热度占比: [{"name": "羽毛球1号馆", "value": 15}, ...]
     private List<Map<String, Object>> venuePopularity;
+
+    // 7x13 时段热力图
+    private List<String> heatmapDays;
+    private List<String> heatmapHours;
+    // [[hourIdx, dayIdx, count], ...]
+    private List<List<Object>> heatmapData;
+
+    // 核心商业闭环与坪效指标
+    private String cancellationRate; // 退订率
+    private String verificationRate; // 核销履约率
+    private String repeatBookingRate; // 会员复购率
+    private String spaceUtilizationRate; // 综合场地坪效利用率
+    private String peakSlotRecommendation; // 智能运营与动态调价建议
 }

@@ -2,7 +2,7 @@
   <div class="stat-charts-container">
     <el-row :gutter="20">
       <!-- 近 7 天营收与客流趋势 -->
-      <el-col :span="15">
+      <el-col :xs="24" :lg="15">
         <div class="chart-card card-shadow">
           <div class="chart-title">近 7 天营收与预约订单趋势</div>
           <div ref="trendChartRef" class="chart-box"></div>
@@ -10,13 +10,30 @@
       </el-col>
 
       <!-- 各场地预约偏好热度 -->
-      <el-col :span="9">
+      <el-col :xs="24" :lg="9">
         <div class="chart-card card-shadow">
           <div class="chart-title">场馆与场地预约热度分布</div>
           <div ref="pieChartRef" class="chart-box"></div>
         </div>
       </el-col>
     </el-row>
+
+    <!-- 全周 7x13 时段坪效热力图 -->
+    <div class="heatmap-section">
+      <div class="chart-card card-shadow">
+        <div class="heatmap-header">
+          <div>
+            <div class="chart-title">全周 7x13 小时时段坪效热力图 (Slot Heatmap)</div>
+            <div class="chart-subtitle">纵览 09:00 - 22:00 全时段预订频次与场馆负荷密度，辅助峰谷差异化定价与排期调度</div>
+          </div>
+          <div class="heatmap-tags">
+            <span class="heat-tag peak">🔥 晚间与周末黄金档</span>
+            <span class="heat-tag off-peak">🌿 工作日上午闲时</span>
+          </div>
+        </div>
+        <div ref="heatmapChartRef" class="heatmap-chart-box"></div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -33,9 +50,11 @@ const props = defineProps({
 
 const trendChartRef = ref(null)
 const pieChartRef = ref(null)
+const heatmapChartRef = ref(null)
 
 let trendChart = null
 let pieChart = null
+let heatmapChart = null
 
 function initCharts() {
   if (trendChartRef.value) {
@@ -43,6 +62,9 @@ function initCharts() {
   }
   if (pieChartRef.value) {
     pieChart = echarts.init(pieChartRef.value)
+  }
+  if (heatmapChartRef.value) {
+    heatmapChart = echarts.init(heatmapChartRef.value)
   }
   renderCharts()
 }
@@ -144,11 +166,95 @@ function renderCharts() {
       ]
     })
   }
+
+  // 3. 全周 7x13 时段坪效热力图
+  if (heatmapChart && props.stats.heatmapDays && props.stats.heatmapHours) {
+    const days = props.stats.heatmapDays
+    const hours = props.stats.heatmapHours
+    const data = props.stats.heatmapData || []
+
+    heatmapChart.setOption({
+      tooltip: {
+        position: 'top',
+        formatter: function (params) {
+          const hour = hours[params.value[0]]
+          const day = days[params.value[1]]
+          const val = params.value[2]
+          const tag = val >= 5 ? '🔥 高峰黄金档' : val <= 1 ? '🌿 闲时低谷档' : '⚡ 活跃档'
+          return `<div style="padding: 4px 6px;">
+                    <div style="font-weight:700;margin-bottom:4px;color:#0f172a;">${day} ${hour}</div>
+                    <div style="color:#334155;">预约占用: <strong>${val}</strong> 场次</div>
+                    <div style="font-size:12px;margin-top:4px;">${tag}</div>
+                  </div>`
+        }
+      },
+      grid: {
+        height: '62%',
+        top: '8%',
+        left: '6%',
+        right: '4%',
+        bottom: '18%'
+      },
+      xAxis: {
+        type: 'category',
+        data: hours,
+        splitArea: { show: true },
+        axisLabel: {
+          interval: 0,
+          rotate: 0,
+          color: '#64748b',
+          fontSize: 11
+        }
+      },
+      yAxis: {
+        type: 'category',
+        data: days,
+        splitArea: { show: true },
+        axisLabel: {
+          color: '#64748b',
+          fontSize: 11
+        }
+      },
+      visualMap: {
+        min: 0,
+        max: 8,
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: '1%',
+        inRange: {
+          color: ['#f1f5f9', '#93c5fd', '#6366f1', '#4338ca', '#ef4444']
+        },
+        textStyle: {
+          color: '#64748b'
+        }
+      },
+      series: [
+        {
+          name: '预约频次',
+          type: 'heatmap',
+          data: data,
+          label: {
+            show: true,
+            fontSize: 11,
+            color: '#1e293b'
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.3)'
+            }
+          }
+        }
+      ]
+    })
+  }
 }
 
 function handleResize() {
   trendChart?.resize()
   pieChart?.resize()
+  heatmapChart?.resize()
 }
 
 watch(() => props.stats, () => {
@@ -164,25 +270,80 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   trendChart?.dispose()
   pieChart?.dispose()
+  heatmapChart?.dispose()
 })
 </script>
 
 <style scoped>
+.stat-charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .chart-card {
-  padding: 18px;
-  background: #ffffff;
+  padding: 18px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
 }
 
 .chart-title {
   font-size: 15px;
   font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 14px;
+  color: var(--text-main);
+}
+
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .chart-box {
   width: 100%;
   height: 320px;
+}
+
+.heatmap-section {
+  margin-top: 4px;
+}
+
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.heatmap-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.heat-tag {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.heat-tag.peak {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.heat-tag.off-peak {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.heatmap-chart-box {
+  width: 100%;
+  height: 360px;
 }
 </style>
