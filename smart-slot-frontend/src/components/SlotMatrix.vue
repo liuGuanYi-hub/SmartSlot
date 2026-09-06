@@ -38,26 +38,52 @@
       </div>
     </div>
 
-    <!-- 运动分类快速过滤 Pills -->
+    <!-- 运动分类快速过滤与智能场馆搜索定位 Row -->
     <div class="category-filter-row" v-if="categories.length">
-      <span class="filter-caption">场馆类型筛选：</span>
-      <div class="pills-container">
-        <button 
-          class="matrix-filter-pill"
-          :class="{ active: selectedCategoryId === null }"
-          @click="selectCategory(null)"
+      <div class="filter-left-wrap">
+        <span class="filter-caption">场馆类型筛选：</span>
+        <div class="pills-container">
+          <button 
+            class="matrix-filter-pill"
+            :class="{ active: selectedCategoryId === null }"
+            @click="selectCategory(null)"
+          >
+            全部分类
+          </button>
+          <button 
+            v-for="c in categories" 
+            :key="c.id" 
+            class="matrix-filter-pill"
+            :class="{ active: selectedCategoryId === c.id }"
+            @click="selectCategory(c.id)"
+          >
+            {{ c.name }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 快捷搜索并自动定位场馆 -->
+      <div class="venue-search-locate-wrap">
+        <el-select
+          v-model="searchedVenueId"
+          filterable
+          clearable
+          placeholder="🔍 搜索场馆快速定位..."
+          class="locate-select"
+          @change="handleSearchLocate"
         >
-          全部分类
-        </button>
-        <button 
-          v-for="c in categories" 
-          :key="c.id" 
-          class="matrix-filter-pill"
-          :class="{ active: selectedCategoryId === c.id }"
-          @click="selectCategory(c.id)"
-        >
-          {{ c.name }}
-        </button>
+          <el-option
+            v-for="v in allVenuesList"
+            :key="v.venueId"
+            :label="v.venueName"
+            :value="v.venueId"
+          >
+            <div class="locate-option-item">
+              <span class="opt-name">{{ v.venueName }}</span>
+              <span class="opt-tag">{{ v.categoryName }} · ￥{{ v.pricePerHour }}/h</span>
+            </div>
+          </el-option>
+        </el-select>
       </div>
     </div>
 
@@ -71,7 +97,8 @@
     <div class="matrix-scroll-hint-bar" v-if="matrixData?.venues?.length > 4">
       <div class="hint-left">
         <el-icon><Right /></el-icon>
-        <span>已开放 <strong>{{ matrixData.venues.length }}</strong> 个特色运动场馆，可使用右侧按钮快速平滑跳转翻看</span>
+        <span>已开放 <strong>{{ matrixData.venues.length }}</strong> 个特色运动场馆，支持<strong>滚轮阻尼横滑</strong>或点击右侧按钮跳转</span>
+        <span class="hint-damping-badge">✨ 滚轮阻尼已开启</span>
       </div>
       <div class="hint-right">
         <button 
@@ -251,10 +278,88 @@ const loading = ref(false)
 const focusedVenueId = ref(null)
 let focusTimeout = null
 
+// 场馆搜索快速定位
+const searchedVenueId = ref(null)
+
+const allVenuesList = computed(() => {
+  if (!matrixData.value?.venues) return []
+  return matrixData.value.venues.map(v => ({
+    venueId: v.venueId,
+    venueName: v.venueName,
+    categoryName: v.categoryName,
+    pricePerHour: v.pricePerHour
+  }))
+})
+
+function handleSearchLocate(venueId) {
+  if (!venueId) return
+  focusVenue(venueId)
+}
+
 // 多场馆横向滚动控制与边界状态
 const scrollWrapRef = ref(null)
 const canScrollLeft = ref(false)
 const canScrollRight = ref(true)
+
+// 鼠标滚轮阻尼平滑滑动手势 (Physics Damping Inertia)
+let velocity = 0
+let rafId = null
+
+function onWheel(e) {
+  const el = scrollWrapRef.value
+  if (!el) return
+  if (e.ctrlKey || e.altKey) return
+
+  // 若当前容器不需要横向滚动，放行默认垂直滚动
+  if (el.scrollWidth <= el.clientWidth) return
+
+  // 触摸板横向滑动手势优先判断
+  const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY)
+  const delta = isHorizontal ? e.deltaX : e.deltaY
+
+  // 边界状态检测：到达边缘放行垂直滚动，避免死锁
+  const atLeft = el.scrollLeft <= 2
+  const atRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
+
+  if ((delta > 0 && atRight) || (delta < 0 && atLeft)) {
+    return
+  }
+
+  e.preventDefault()
+
+  let normalized = delta
+  if (e.deltaMode === 1) normalized *= 28
+  else if (e.deltaMode === 2) normalized *= 360
+
+  // 累加带阻尼系数的初速度，钳制防眩晕
+  velocity += normalized * 0.75
+  velocity = Math.max(-100, Math.min(100, velocity))
+
+  if (!rafId) {
+    rafId = requestAnimationFrame(inertiaStep)
+  }
+}
+
+function inertiaStep() {
+  const el = scrollWrapRef.value
+  if (!el) {
+    rafId = null
+    velocity = 0
+    return
+  }
+
+  if (Math.abs(velocity) < 0.25) {
+    velocity = 0
+    rafId = null
+    checkScrollable()
+    return
+  }
+
+  el.scrollLeft += velocity
+  velocity *= 0.86 // 0.86 丝滑物理摩擦阻尼衰减系数
+  checkScrollable()
+  rafId = requestAnimationFrame(inertiaStep)
+}
 
 function checkScrollable() {
   nextTick(() => {
@@ -345,6 +450,7 @@ function resetToToday() {
 
 function selectCategory(id) {
   selectedCategoryId.value = id
+  searchedVenueId.value = null
   fetchMatrixData()
 }
 
@@ -536,11 +642,22 @@ onMounted(() => {
   fetchMatrixData()
   initWebSocket()
   window.addEventListener('resize', checkScrollable)
+  nextTick(() => {
+    const scrollWrap = scrollWrapRef.value
+    if (scrollWrap) {
+      scrollWrap.addEventListener('wheel', onWheel, { passive: false })
+    }
+  })
   setTimeout(checkScrollable, 500)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkScrollable)
+  const scrollWrap = scrollWrapRef.value
+  if (scrollWrap) {
+    scrollWrap.removeEventListener('wheel', onWheel)
+  }
+  if (rafId) cancelAnimationFrame(rafId)
   stopHeartbeat()
   if (reconnectTimer) clearTimeout(reconnectTimer)
   if (socket) {
@@ -558,6 +675,7 @@ async function focusVenue(venueId) {
   }
 
   focusedVenueId.value = venueId
+  searchedVenueId.value = venueId
 
   // 2. 平滑轻微纵向滚动页面，保证日历看板进入舒适的可视区域
   const matrixContainer = document.querySelector('.slot-matrix-container')
@@ -581,6 +699,11 @@ async function focusVenue(venueId) {
       behavior: 'smooth'
     })
     setTimeout(checkScrollable, 400)
+
+    const targetVenue = matrixData.value?.venues?.find(v => v.venueId === venueId)
+    if (targetVenue) {
+      ElMessage.success(`已自动聚焦定位至【${targetVenue.venueName}】`)
+    }
   }
 
   if (focusTimeout) clearTimeout(focusTimeout)
@@ -651,8 +774,64 @@ defineExpose({
 .category-filter-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 20px;
+}
+
+.filter-left-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.venue-search-locate-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.locate-select {
+  width: 260px;
+}
+
+.locate-option-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.opt-name {
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opt-tag {
+  font-size: 11px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.hint-damping-badge {
+  font-size: 11px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
 }
 
 .filter-caption {
