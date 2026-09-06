@@ -22,6 +22,12 @@
         />
       </div>
 
+      <!-- 全网协同毫秒级广播状态胶囊 (Week 1 企业级协同亮点) -->
+      <div class="live-sync-indicator" :class="{ connected: wsConnected }">
+        <span class="live-ping-pulse"></span>
+        <span class="live-text">{{ wsConnected ? `协同广播中 · ${onlineUsers} 人在线` : '网络同步中...' }}</span>
+      </div>
+
       <!-- 现代状态指示图例 (Landing.love 灵感) -->
       <div class="status-legend-bar">
         <div class="legend-chip"><span class="legend-dot dot-available"></span>可选时段</div>
@@ -95,7 +101,7 @@
             v-for="venue in matrixData.venues" 
             :key="venue.venueId + '_' + slotTime"
             class="board-cell slot-cell glow-on-hover"
-            :class="getSlotClass(venue.slots[sIdx])"
+            :class="[getSlotClass(venue.slots[sIdx]), { 'slot-live-flash': flashingSlotKey === (venue.venueId + '_' + slotTime) }]"
             @click="handleSlotClick(venue, venue.slots[sIdx], slotTime)"
           >
             <div class="slot-inner">
@@ -146,11 +152,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ArrowLeft, ArrowRight, Clock, Check, Lock } from '@element-plus/icons-vue'
 import { getSlotMatrix, getCategories } from '@/api/venue'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 
 const emit = defineEmits(['select-slot', 'view-order'])
 
@@ -159,6 +165,15 @@ const selectedCategoryId = ref(null)
 const categories = ref([])
 const matrixData = ref(null)
 const loading = ref(false)
+
+// WebSocket 全网实时协同状态
+const wsConnected = ref(false)
+const onlineUsers = ref(1)
+const flashingSlotKey = ref(null)
+
+let socket = null
+let heartbeatTimer = null
+let reconnectTimer = null
 
 const isToday = computed(() => selectedDate.value === dayjs().format('YYYY-MM-DD'))
 
@@ -263,9 +278,135 @@ function handleSlotClick(venue, slot, timeSlot) {
   })
 }
 
+/**
+ * 初始化 WebSocket 协同长连接
+ */
+function initWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  const wsUrl = `${protocol}//${host}/ws/slot`
+
+  try {
+    socket = new WebSocket(wsUrl)
+    socket.onopen = () => {
+      wsConnected.value = true
+      startHeartbeat()
+    }
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        handleRealtimeEvent(data)
+      } catch (err) {
+        // 忽略非 JSON 心跳
+      }
+    }
+
+    socket.onclose = () => {
+      wsConnected.value = false
+      stopHeartbeat()
+      scheduleReconnect()
+    }
+
+    socket.onerror = () => {
+      socket?.close()
+    }
+  } catch (err) {
+    scheduleReconnect()
+  }
+}
+
+function startHeartbeat() {
+  stopHeartbeat()
+  heartbeatTimer = setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send('PING')
+    }
+  }, 25000)
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    initWebSocket()
+  }, 3000)
+}
+
+/**
+ * 毫秒级响应后端时段变更全网广播
+ */
+function handleRealtimeEvent(data) {
+  if (!data) return
+
+  // 1. 在线协同人数更新
+  if (data.eventType === 'ONLINE_COUNT') {
+    onlineUsers.value = Math.max(1, data.onlineCount || 1)
+    return
+  }
+
+  // 2. 检查变更是否属于当前查看的日历日期
+  if (data.bookDate && data.bookDate === selectedDate.value) {
+    if (!matrixData.value?.venues) return
+
+    const venue = matrixData.value.venues.find(v => v.venueId === data.venueId)
+    if (venue && venue.slots) {
+      const slot = venue.slots.find(s => s.timeSlot === data.timeSlot)
+      if (slot) {
+        slot.status = data.status
+
+        // 触发格子平滑流体呼吸闪烁动画
+        const slotKey = `${venue.venueId}_${data.timeSlot}`
+        flashingSlotKey.value = slotKey
+        setTimeout(() => {
+          if (flashingSlotKey.value === slotKey) {
+            flashingSlotKey.value = null
+          }
+        }, 1500)
+
+        // 协同交互微提示通知
+        if (data.eventType === 'LOCK') {
+          ElNotification({
+            title: '时段已被锁定',
+            message: data.message || `场地【${venue.venueName}】时段 ${data.timeSlot} 刚被他人锁定`,
+            type: 'warning',
+            duration: 3000,
+            position: 'bottom-right'
+          })
+        } else if (data.eventType === 'TIMEOUT' || data.eventType === 'CANCEL') {
+          ElNotification({
+            title: '时段已释放',
+            message: data.message || `时段 ${data.timeSlot} 已由系统重新释放为空闲可选`,
+            type: 'success',
+            duration: 3000,
+            position: 'bottom-right'
+          })
+        }
+      }
+    }
+  }
+}
+
 onMounted(() => {
   loadCategories()
   fetchMatrixData()
+  initWebSocket()
+})
+
+onUnmounted(() => {
+  stopHeartbeat()
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  if (socket) {
+    socket.onclose = null
+    socket.close()
+  }
 })
 
 defineExpose({
@@ -566,5 +707,69 @@ defineExpose({
   color: #94a3b8;
   cursor: not-allowed;
   border: 1px dashed #cbd5e1;
+}
+
+/* 全网实时协同胶囊与呼吸光环 (Week 1 企业级协同亮点) */
+.live-sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 999px;
+  font-size: 12px;
+  color: #059669;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.live-sync-indicator:not(.connected) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #dc2626;
+}
+.live-ping-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pingPulse 2s infinite;
+}
+.live-sync-indicator:not(.connected) .live-ping-pulse {
+  background-color: #ef4444;
+  animation: none;
+}
+@keyframes pingPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* 格子实时变色与呼吸微动效 (Landing.love 灵感) */
+@keyframes slotFlashAnimation {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.9);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+.slot-live-flash {
+  animation: slotFlashAnimation 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  z-index: 5;
+  position: relative;
 }
 </style>

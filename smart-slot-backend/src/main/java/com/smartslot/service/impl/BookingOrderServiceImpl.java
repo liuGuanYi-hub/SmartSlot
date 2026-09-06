@@ -6,10 +6,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.smartslot.common.BusinessException;
 import com.smartslot.dto.BookingCreateDto;
 import com.smartslot.dto.ReviewCreateDto;
+import com.smartslot.dto.SlotEventDto;
 import com.smartslot.entity.*;
 import com.smartslot.mapper.*;
 import com.smartslot.service.BookingOrderService;
 import com.smartslot.service.OrderDelayQueueService;
+import com.smartslot.service.WebSocketPushService;
 import com.smartslot.util.LuaLockManager;
 import com.smartslot.vo.SlotMatrixVo;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
     private final OrderReviewMapper reviewMapper;
     private final LuaLockManager luaLockManager;
     private final OrderDelayQueueService orderDelayQueueService;
+    private final WebSocketPushService webSocketPushService;
 
     private static final List<String> STANDARD_SLOTS = List.of(
             "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
@@ -216,6 +219,19 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         // 4. 投递 Redisson / JVM 延时队列，15 分钟未支付自动关单释放库存
         orderDelayQueueService.sendOrderTimeoutDelay(orderNo, 15, TimeUnit.MINUTES);
 
+        // 5. WebSocket 全网毫秒级广播：通知所有在线用户该时段已被锁定
+        webSocketPushService.broadcastSlotChange(SlotEventDto.builder()
+                .eventType("LOCK")
+                .venueId(dto.getVenueId())
+                .venueName(venue.getName())
+                .bookDate(dto.getBookDate())
+                .timeSlot(dto.getTimeSlot())
+                .status(1)
+                .userId(userId)
+                .message("场地【" + venue.getName() + "】时段 " + dto.getTimeSlot() + " 刚被抢先锁定")
+                .timestamp(System.currentTimeMillis())
+                .build());
+
         log.info("成功锁定并创建预约订单: orderNo={}, userId={}, venueId={}, timeSlot={}",
                 orderNo, userId, dto.getVenueId(), dto.getTimeSlot());
         return order;
@@ -269,6 +285,18 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         order.setUpdateTime(LocalDateTime.now());
         updateById(order);
 
+        // 广播时段已完成支付出票
+        webSocketPushService.broadcastSlotChange(SlotEventDto.builder()
+                .eventType("PAY")
+                .venueId(order.getVenueId())
+                .bookDate(order.getBookDate())
+                .timeSlot(order.getTimeSlot())
+                .status(2)
+                .userId(userId)
+                .message("时段 " + order.getTimeSlot() + " 已出票成功")
+                .timestamp(System.currentTimeMillis())
+                .build());
+
         log.info("订单支付成功: orderNo={}, 核销码={}", orderNo, verifyCode);
         return order;
     }
@@ -310,6 +338,19 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
 
         // 释放时段锁
         luaLockManager.unlockAtomic(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()), "FORCE_UNLOCK");
+
+        // 广播时段已取消释放
+        webSocketPushService.broadcastSlotChange(SlotEventDto.builder()
+                .eventType("CANCEL")
+                .venueId(order.getVenueId())
+                .bookDate(order.getBookDate())
+                .timeSlot(order.getTimeSlot())
+                .status(0)
+                .userId(userId)
+                .message("时段 " + order.getTimeSlot() + " 已取消并恢复空闲")
+                .timestamp(System.currentTimeMillis())
+                .build());
+
         log.info("订单已成功取消并释放时段: orderNo={}", order.getOrderNo());
     }
 
@@ -436,6 +477,19 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
 
             String lockKey = buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot());
             luaLockManager.unlockAtomic(lockKey, "FORCE_UNLOCK");
+
+            // WebSocket 全网广播：超时释放通知
+            webSocketPushService.broadcastSlotChange(SlotEventDto.builder()
+                    .eventType("TIMEOUT")
+                    .venueId(order.getVenueId())
+                    .bookDate(order.getBookDate())
+                    .timeSlot(order.getTimeSlot())
+                    .status(0)
+                    .userId(order.getUserId())
+                    .message("时段 " + order.getTimeSlot() + " 支付超时，已由延迟队列自动释放")
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+
             log.info("[延时关单] 订单超时成功关单并释放时段锁: orderNo={}, lockKey={}", orderNo, lockKey);
         } else {
             log.info("[延时关单] 订单非待支付状态，无需关单: orderNo={}, status={}", orderNo, order.getOrderStatus());

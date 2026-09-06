@@ -34,6 +34,9 @@ class SmartSlotApplicationTests {
     @Autowired
     private com.smartslot.service.OrderDelayQueueService orderDelayQueueService;
 
+    @Autowired
+    private com.smartslot.service.WebSocketPushService webSocketPushService;
+
     @Test
     @DisplayName("测试系统上下文与数据库连通性")
     void contextLoads() {
@@ -41,6 +44,7 @@ class SmartSlotApplicationTests {
         Assertions.assertNotNull(bookingOrderService);
         Assertions.assertNotNull(luaLockManager);
         Assertions.assertNotNull(orderDelayQueueService);
+        Assertions.assertNotNull(webSocketPushService);
     }
 
     @Test
@@ -126,5 +130,25 @@ class SmartSlotApplicationTests {
         BookingOrder updatedOrder = bookingOrderService.getById(order.getId());
         Assertions.assertNotNull(updatedOrder);
         Assertions.assertEquals(3, updatedOrder.getOrderStatus(), "超时后订单状态应变为已取消(3)");
+    }
+
+    @Test
+    @DisplayName("测试 WebSocket 时段状态变更广播与在线人数统计")
+    void testWebSocketBroadcast() {
+        Assertions.assertDoesNotThrow(() -> {
+            webSocketPushService.broadcastSlotChange(com.smartslot.dto.SlotEventDto.builder()
+                    .eventType("LOCK")
+                    .venueId(1L)
+                    .venueName("羽毛球1号场")
+                    .bookDate(LocalDate.now())
+                    .timeSlot("10:00-11:00")
+                    .status(1)
+                    .userId(1L)
+                    .message("测试广播消息")
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+            webSocketPushService.broadcastOnlineCount();
+        });
+        Assertions.assertTrue(webSocketPushService.getOnlineCount() >= 0);
     }
 }
