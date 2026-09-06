@@ -40,6 +40,12 @@ public class SysUser implements Serializable {
 
     private Integer status; // 1-启用, 0-禁用
 
+    /**
+     * 履约信用分 (默认 100，最高 120，低于 70 限制预订高峰时段)
+     */
+    @Builder.Default
+    private Integer creditScore = 100;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

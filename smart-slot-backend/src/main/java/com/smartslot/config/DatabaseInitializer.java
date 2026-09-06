@@ -29,6 +29,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         initOperationLogTable();
         initIotGateLogTable();
         initPaymentRecordTable();
+        initUserCreditScoreColumn();
         initRolesAndUsers();
         fixVenueCoverImages();
     }
@@ -120,6 +121,19 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("数据库初始化: payment_record 支付网关流水与对账表检查就绪");
         } catch (Exception e) {
             log.warn("检查或创建 payment_record 遇到异常: {}", e.getMessage());
+        }
+    }
+
+    private void initUserCreditScoreColumn() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'credit_score'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            if (count == null || count == 0) {
+                jdbcTemplate.execute("ALTER TABLE `sys_user` ADD COLUMN `credit_score` INT NOT NULL DEFAULT 100 COMMENT '履约信用分'");
+                log.info("数据库初始化: sys_user 成功扩展 credit_score 履约信用分字段");
+            }
+        } catch (Exception e) {
+            log.warn("检查或添加 credit_score 字段异常: {}", e.getMessage());
         }
     }
 

@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.smartslot.common.BusinessException;
 import com.smartslot.dto.LoginDto;
 import com.smartslot.dto.RegisterDto;
+import com.smartslot.entity.PaymentRecord;
 import com.smartslot.entity.SysUser;
+import com.smartslot.mapper.PaymentRecordMapper;
 import com.smartslot.mapper.SysUserMapper;
 import com.smartslot.service.SysUserService;
 import com.smartslot.util.JwtUtil;
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
 
     private final JwtUtil jwtUtil;
+    private final PaymentRecordMapper paymentRecordMapper;
 
     // 密码混淆盐
     private static final String SALT = "SmartSlot_Salt_2026";
@@ -103,6 +106,93 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
+        return user;
+    }
+
+    @Override
+    public void updateProfile(Long userId, String nickname, String phone) {
+        SysUser user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (nickname != null && !nickname.trim().isEmpty()) {
+            user.setNickname(nickname.trim());
+        }
+        if (phone != null && !phone.trim().isEmpty()) {
+            user.setPhone(phone.trim());
+        }
+        user.setUpdateTime(LocalDateTime.now());
+        updateById(user);
+        log.info("用户修改个人资料成功: userId={}, nickname={}", userId, nickname);
+    }
+
+    @Override
+    public void updatePassword(Long userId, String oldPassword, String newPassword) {
+        SysUser user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (!checkPassword(oldPassword, user.getPassword())) {
+            throw new BusinessException("原登录密码不正确，请重新输入");
+        }
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new BusinessException("新密码长度不能少于 6 位");
+        }
+        user.setPassword(encodePassword(newPassword.trim()));
+        user.setUpdateTime(LocalDateTime.now());
+        updateById(user);
+        log.info("用户修改密码成功: userId={}", userId);
+    }
+
+    @Override
+    public SysUser rechargeWallet(Long userId, BigDecimal amount, String channel) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("充值金额必须大于 0 元");
+        }
+        SysUser user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+
+        // 计算赠金奖励阶梯 (满100送10, 满300送45, 满500送100, 满1000送250)
+        BigDecimal bonus = BigDecimal.ZERO;
+        if (amount.compareTo(new BigDecimal("1000")) >= 0) {
+            bonus = new BigDecimal("250.00");
+        } else if (amount.compareTo(new BigDecimal("500")) >= 0) {
+            bonus = new BigDecimal("100.00");
+        } else if (amount.compareTo(new BigDecimal("300")) >= 0) {
+            bonus = new BigDecimal("45.00");
+        } else if (amount.compareTo(new BigDecimal("100")) >= 0) {
+            bonus = new BigDecimal("10.00");
+        }
+
+        BigDecimal totalCredited = amount.add(bonus);
+        BigDecimal oldBalance = user.getBalance() == null ? BigDecimal.ZERO : user.getBalance();
+        user.setBalance(oldBalance.add(totalCredited));
+        user.setUpdateTime(LocalDateTime.now());
+        updateById(user);
+
+        // 写入支付网关流水明细
+        String tradeNo = "REC" + System.currentTimeMillis() + (int)((Math.random() * 9 + 1) * 1000);
+        String channelName = (channel != null && !channel.trim().isEmpty()) ? channel.toUpperCase() : "ALIPAY";
+        PaymentRecord record = PaymentRecord.builder()
+                .tradeNo(tradeNo)
+                .orderNo("RECHARGE-" + System.currentTimeMillis())
+                .userId(userId)
+                .channel(channelName)
+                .amount(amount)
+                .payStatus(1) // 支付成功入账
+                .gatewayTradeNo("GATEWAY-" + tradeNo)
+                .buyerId("会员充值(赠金: " + bonus + "元)")
+                .signType("RSA2")
+                .notifyRawData("{\"type\":\"RECHARGE\",\"actualAmount\":" + amount + ",\"bonus\":" + bonus + ",\"totalCredited\":" + totalCredited + "}")
+                .reconciled(1)
+                .createTime(LocalDateTime.now())
+                .notifyTime(LocalDateTime.now())
+                .build();
+        paymentRecordMapper.insert(record);
+
+        log.info("会员充值成功: userId={}, 充值={}, 赠送={}, 最新余额={}", userId, amount, bonus, user.getBalance());
         return user;
     }
 }

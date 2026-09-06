@@ -13,4 +13,10 @@ public interface SysUserService extends IService<SysUser> {
     void register(RegisterDto dto);
 
     SysUser getCurrentUserInfo(Long userId);
+
+    void updateProfile(Long userId, String nickname, String phone);
+
+    void updatePassword(Long userId, String oldPassword, String newPassword);
+
+    SysUser rechargeWallet(Long userId, java.math.BigDecimal amount, String channel);
 }
