@@ -28,6 +28,7 @@ public class DatabaseInitializer implements CommandLineRunner {
     public void run(String... args) {
         initOperationLogTable();
         initIotGateLogTable();
+        initPaymentRecordTable();
         initRolesAndUsers();
     }
 
@@ -86,6 +87,38 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("数据库初始化: iot_gate_log 智能道闸日志表检查就绪");
         } catch (Exception e) {
             log.warn("检查或创建 iot_gate_log 遇到异常: {}", e.getMessage());
+        }
+    }
+
+    private void initPaymentRecordTable() {
+        try {
+            String sql = """
+                CREATE TABLE IF NOT EXISTS `payment_record` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `trade_no` VARCHAR(64) NOT NULL COMMENT '支付流水号',
+                  `order_no` VARCHAR(64) NOT NULL COMMENT '系统订单号',
+                  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+                  `channel` VARCHAR(32) NOT NULL COMMENT '支付渠道(ALIPAY/WECHAT/BALANCE)',
+                  `amount` DECIMAL(10,2) NOT NULL COMMENT '交易金额',
+                  `pay_status` INT NOT NULL DEFAULT 0 COMMENT '支付状态(0-待支付,1-支付成功,2-支付失败,3-已退款)',
+                  `gateway_trade_no` VARCHAR(64) DEFAULT NULL COMMENT '网关交易凭证号',
+                  `buyer_id` VARCHAR(64) DEFAULT NULL COMMENT '买家网关标识',
+                  `sign_type` VARCHAR(32) DEFAULT 'RSA2' COMMENT '签名算法',
+                  `notify_raw_data` TEXT COMMENT '网关异步通知原始报文',
+                  `reconciled` INT NOT NULL DEFAULT 1 COMMENT '对账状态(1-已平账,0-未平账)',
+                  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
+                  `notify_time` DATETIME DEFAULT NULL COMMENT '网关回调通知时间',
+                  PRIMARY KEY (`id`),
+                  UNIQUE KEY `uk_trade_no` (`trade_no`),
+                  KEY `idx_order_no` (`order_no`),
+                  KEY `idx_channel` (`channel`),
+                  KEY `idx_create_time` (`create_time`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付网关流水对账表';
+            """;
+            jdbcTemplate.execute(sql);
+            log.info("数据库初始化: payment_record 支付网关流水与对账表检查就绪");
+        } catch (Exception e) {
+            log.warn("检查或创建 payment_record 遇到异常: {}", e.getMessage());
         }
     }
 

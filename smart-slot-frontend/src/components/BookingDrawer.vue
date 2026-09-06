@@ -205,6 +205,9 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 多渠道支付网关收银台 (支付宝/微信/余额) -->
+    <CashierModal ref="cashierModalRef" @pay-success="onCashierSuccess" />
   </el-drawer>
 </template>
 
@@ -215,6 +218,7 @@ import { lockAndCreateOrder, payOrder, getIdempotentToken } from '@/api/booking'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import CashierModal from '@/components/CashierModal.vue'
 
 const emit = defineEmits(['success'])
 const router = useRouter()
@@ -226,6 +230,7 @@ const submitting = ref(false)
 const paying = ref(false)
 
 const payDialogVisible = ref(false)
+const cashierModalRef = ref(null)
 const createdOrder = ref(null)
 const paidOrder = ref(null)
 const paymentSuccess = ref(false)
@@ -279,14 +284,31 @@ async function submitBooking() {
       contactPhone: formData.contactPhone
     }, token)
     createdOrder.value = res
-    payDialogVisible.value = true
     visible.value = false
     ElMessage.success('已成功在 Redis 中锁定该时段（15分钟保护）！')
+    cashierModalRef.value?.open({
+      orderNo: res.orderNo,
+      totalAmount: res.totalAmount,
+      venueName: slotData.value.venue?.name,
+      bookDate: res.bookDate,
+      timeSlot: res.timeSlot
+    })
   } catch (e) {
     console.error(e)
   } finally {
     submitting.value = false
   }
+}
+
+async function onCashierSuccess(payRes) {
+  paidOrder.value = {
+    ...createdOrder.value,
+    ...payRes
+  }
+  paymentSuccess.value = true
+  payDialogVisible.value = true
+  await userStore.fetchCurrentUser?.()
+  emit('success')
 }
 
 async function handlePay() {

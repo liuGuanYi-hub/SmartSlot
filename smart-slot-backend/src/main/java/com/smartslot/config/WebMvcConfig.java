@@ -49,6 +49,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/login",
                         "/api/auth/register",
                         "/api/venues/**",          // 场地列表、分类、日历矩阵查询对未登录访客公开
+                        "/api/pay/notify/**",      // 微信/支付宝第三方网关异步 Webhook 回调
+                        "/api/pay/mock-sandbox-callback", // 沙箱模拟外部 Webhook 触发端点
                         "/doc.html",
                         "/webjars/**",
                         "/v3/api-docs/**",

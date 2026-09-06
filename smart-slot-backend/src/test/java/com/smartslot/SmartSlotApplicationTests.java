@@ -15,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.util.Map;
+import com.smartslot.dto.PrepayRequestDto;
+import com.smartslot.dto.PrepayResponseDto;
 
 @SpringBootTest
 class SmartSlotApplicationTests {
@@ -298,4 +301,64 @@ class SmartSlotApplicationTests {
 
         com.smartslot.common.UserContext.clear();
     }
+
+    @Autowired
+    private com.smartslot.service.PaymentGatewayService paymentGatewayService;
+
+    @Test
+    @DisplayName("测试多渠道支付网关预下单、沙箱异步通知回调与财务对账平账")
+    void testPaymentGatewayAndReconciliation() {
+        // 1. 创建待支付订单
+        String uniqueSlot = "18:00-19:00";
+        LocalDate testDate = LocalDate.now().plusDays(3);
+        Long testVenueId = 1L;
+
+        // 前置幂等清理历史测试残留
+        bookingOrderService.remove(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookingOrder>()
+                .eq(BookingOrder::getVenueId, testVenueId)
+                .eq(BookingOrder::getBookDate, testDate)
+                .eq(BookingOrder::getTimeSlot, uniqueSlot));
+        luaLockManager.unlockAtomic(String.format("slot:lock:%d:%s:%s", testVenueId, testDate, uniqueSlot), "FORCE_UNLOCK");
+
+        BookingCreateDto dto = new BookingCreateDto();
+        dto.setVenueId(testVenueId);
+        dto.setBookDate(testDate);
+        dto.setTimeSlot(uniqueSlot);
+        dto.setContactName("支付测试员");
+        dto.setContactPhone("13911112222");
+
+        BookingOrder order = bookingOrderService.lockAndCreateOrder(dto, 1L);
+        Assertions.assertNotNull(order);
+        Assertions.assertEquals(0, order.getPayStatus(), "初始应为未支付状态(0)");
+
+        // 2. 发起支付宝预下单
+        PrepayRequestDto prepayDto = new PrepayRequestDto();
+        prepayDto.setOrderNo(order.getOrderNo());
+        prepayDto.setChannel("ALIPAY");
+
+        PrepayResponseDto prepayRes = paymentGatewayService.createPrepay(prepayDto, 1L);
+        Assertions.assertNotNull(prepayRes);
+        Assertions.assertEquals(order.getOrderNo(), prepayRes.getOrderNo());
+        Assertions.assertTrue(prepayRes.getTradeNo().startsWith("ALI"), "流水号应以渠道 ALI 开头");
+        Assertions.assertTrue(prepayRes.getQrCodeContent().contains("alipays://"), "应生成支付宝网关扫码串");
+
+        // 3. 模拟沙箱手机扫码支付成功 (触发异步 Webhook)
+        Map<String, Object> callbackResult = paymentGatewayService.mockSandboxCallback(order.getOrderNo(), "ALIPAY");
+        Assertions.assertEquals(true, callbackResult.get("success"));
+
+        // 4. 验证订单自动核销码生成与状态流转
+        BookingOrder paidOrder = bookingOrderService.getById(order.getId());
+        Assertions.assertEquals(1, paidOrder.getPayStatus(), "支付后 payStatus 应为 1");
+        Assertions.assertEquals(1, paidOrder.getOrderStatus(), "支付后 orderStatus 应为 1 (待核销)");
+        Assertions.assertNotNull(paidOrder.getVerifyCode(), "应生成 6 位核销码");
+        Assertions.assertEquals(6, paidOrder.getVerifyCode().length(), "核销码长度应为 6 位");
+
+        // 5. 验证财务对账中心
+        com.smartslot.vo.ReconciliationSummaryVo summary = paymentGatewayService.getReconciliationSummary();
+        Assertions.assertNotNull(summary);
+        Assertions.assertTrue(summary.getTotalTransactions() > 0, "总交易笔数应大于 0");
+        Assertions.assertTrue(summary.getMatchedCount() > 0, "平账笔数应大于 0");
+        Assertions.assertTrue(summary.getTotalIncome().compareTo(java.math.BigDecimal.ZERO) > 0, "总营收应大于 0");
+    }
 }
+

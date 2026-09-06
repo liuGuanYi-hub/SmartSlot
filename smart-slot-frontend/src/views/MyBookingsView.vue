@@ -205,6 +205,9 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 收银台模态框 -->
+    <CashierModal ref="cashierModalRef" @pay-success="onCashierSuccess" />
   </div>
 </template>
 
@@ -213,6 +216,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { getMyOrdersPage, payOrder, cancelOrder, submitReview, getIdempotentToken } from '@/api/booking'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import CashierModal from '@/components/CashierModal.vue'
 
 const activeTab = ref('all')
 const orderList = ref([])
@@ -222,6 +226,7 @@ const pageSize = ref(10)
 const loading = ref(false)
 
 const codeDialogVisible = ref(false)
+const cashierModalRef = ref(null)
 const currentOrder = ref(null)
 
 const reviewDialogVisible = ref(false)
@@ -289,18 +294,12 @@ function copyCode(code) {
   })
 }
 
-async function openPayModal(order) {
-  try {
-    await ElMessageBox.confirm(`确认使用虚拟账户余额支付 ￥${order.totalAmount} 吗？`, '快速支付确认', {
-      type: 'warning'
-    })
-    const token = await getIdempotentToken()
-    await payOrder(order.orderNo, token)
-    ElMessage.success('支付成功，已生成核销凭证！')
-    fetchOrders()
-  } catch (e) {
-    // canceled
-  }
+function openPayModal(order) {
+  cashierModalRef.value?.open(order)
+}
+
+function onCashierSuccess() {
+  fetchOrders()
 }
 
 async function handleCancel(order) {
