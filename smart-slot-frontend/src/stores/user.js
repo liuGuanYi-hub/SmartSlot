@@ -6,6 +6,7 @@ export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('smart_slot_token') || '')
   const userInfo = ref(JSON.parse(localStorage.getItem('smart_slot_user') || 'null'))
 
+  const user = computed(() => userInfo.value)
   const isLoggedIn = computed(() => !!token.value)
   const role = computed(() => userInfo.value?.role || 'ROLE_USER')
   const isAdmin = computed(() => role.value === 'ROLE_ADMIN')
@@ -49,6 +50,15 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  const getUserInfo = fetchCurrentUser
+
+  function updateBalance(newBalance) {
+    if (userInfo.value) {
+      userInfo.value.balance = Number(newBalance)
+      localStorage.setItem('smart_slot_user', JSON.stringify(userInfo.value))
+    }
+  }
+
   function logout() {
     token.value = ''
     userInfo.value = null
@@ -59,6 +69,7 @@ export const useUserStore = defineStore('user', () => {
   return {
     token,
     userInfo,
+    user,
     role,
     isLoggedIn,
     isAdmin,
@@ -68,6 +79,8 @@ export const useUserStore = defineStore('user', () => {
     hasRole,
     loginAction,
     fetchCurrentUser,
+    getUserInfo,
+    updateBalance,
     logout
   }
 })

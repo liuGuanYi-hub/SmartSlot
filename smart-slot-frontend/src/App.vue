@@ -62,7 +62,12 @@
           </el-tooltip>
 
           <template v-if="userStore.isLoggedIn">
-            <div class="balance-pill clickable-pill" @click="$router.push('/profile')" title="点击进入个人中心与钱包充值">
+            <div 
+              class="balance-pill clickable-pill" 
+              :class="{ 'balance-updated': isBalancePulsing }"
+              @click="$router.push('/profile')" 
+              title="点击进入个人中心与钱包充值"
+            >
               <span class="balance-label">账户余额</span>
               <span class="balance-val">￥{{ (userStore.userInfo?.balance || 0).toFixed ? (userStore.userInfo?.balance || 0).toFixed(2) : (userStore.userInfo?.balance || 0) }}</span>
             </div>
@@ -179,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon, User } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
@@ -190,6 +195,22 @@ const userStore = useUserStore()
 const router = useRouter()
 const { isDark, toggleTheme } = useTheme()
 const mobileDrawer = ref(false)
+
+const isBalancePulsing = ref(false)
+let pulseTimer = null
+
+watch(
+  () => userStore.userInfo?.balance,
+  (newVal, oldVal) => {
+    if (newVal !== undefined && oldVal !== undefined && newVal !== oldVal) {
+      isBalancePulsing.value = true
+      if (pulseTimer) clearTimeout(pulseTimer)
+      pulseTimer = setTimeout(() => {
+        isBalancePulsing.value = false
+      }, 1600)
+    }
+  }
+)
 
 function handleLogout() {
   userStore.logout()
@@ -367,6 +388,53 @@ onMounted(() => {
   padding: 5px 14px;
   border-radius: 20px;
   font-size: 13px;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clickable-pill {
+  cursor: pointer;
+  user-select: none;
+}
+
+.clickable-pill:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  transform: translateY(-1px);
+}
+
+.balance-pill.balance-updated {
+  animation: balancePulse 1.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-color: #10b981;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+}
+
+.balance-pill.balance-updated .balance-val {
+  color: #059669;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+@keyframes balancePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
+  25% {
+    transform: scale(1.1);
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.12);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+  }
+  75% {
+    transform: scale(1.07);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.45);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 .balance-label {
@@ -377,6 +445,7 @@ onMounted(() => {
 .balance-val {
   color: #059669;
   font-weight: 800;
+  transition: color 0.3s ease;
 }
 
 .user-profile-btn {

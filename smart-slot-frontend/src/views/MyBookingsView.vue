@@ -296,8 +296,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { getMyOrdersPage, payOrder, cancelOrder, submitReview, getIdempotentToken } from '@/api/booking'
+import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CashierModal from '@/components/CashierModal.vue'
+
+const userStore = useUserStore()
 
 const activeTab = ref('all')
 const orderList = ref([])
@@ -381,6 +384,7 @@ function openPayModal(order) {
 
 function onCashierSuccess() {
   fetchOrders()
+  userStore.fetchCurrentUser()
 }
 
 const cancelDialogVisible = ref(false)
@@ -418,6 +422,7 @@ async function confirmCancelOrder() {
     ElMessage.success('订单已成功取消，费用已原路退回至账户余额')
     cancelDialogVisible.value = false
     fetchOrders()
+    userStore.fetchCurrentUser()
   } catch (e) {
     console.error(e)
   } finally {

@@ -254,9 +254,12 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getAdminUsersPage, updateAdminUserStatus, updateAdminUserRole, adjustAdminUserBalance, adjustAdminUserCredit } from '@/api/user'
+import { useUserStore } from '@/stores/user'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
+
+const userStore = useUserStore()
 
 const userList = ref([])
 const total = ref(0)
@@ -393,6 +396,7 @@ async function submitBalanceAdjust() {
     ElMessage.success('用户余额调整成功')
     balanceDialogVisible.value = false
     fetchUsers()
+    userStore.fetchCurrentUser()
   } catch (e) {
     console.error(e)
   } finally {
@@ -413,6 +417,7 @@ async function submitRoleChange() {
     ElMessage.success('用户角色分配成功')
     roleDialogVisible.value = false
     fetchUsers()
+    userStore.fetchCurrentUser()
   } catch (e) {
     console.error(e)
   } finally {

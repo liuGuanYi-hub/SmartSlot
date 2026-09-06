@@ -333,9 +333,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { getUserProfile, updateUserProfile, updateUserPassword, rechargeWallet, getMyWalletRecords } from '@/api/user'
+import { useUserStore } from '@/stores/user'
 import { Check, Close } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+
+const userStore = useUserStore()
 
 const activeTab = ref('wallet')
 const loading = ref(false)
@@ -474,6 +477,7 @@ async function handleRecharge() {
       channel: rechargeChannel.value
     })
     ElMessage.success(`充值成功！赠金 ￥${calculatedBonus.value} 已自动到账，最新余额 ￥${res.balance.toFixed(2)}`)
+    userStore.updateBalance(res.balance)
     await loadProfile()
     await loadRecords()
   } catch (e) {
@@ -493,6 +497,7 @@ async function handleUpdateProfile() {
     await updateUserProfile(profileForm)
     ElMessage.success('个人资料保存成功')
     await loadProfile()
+    await userStore.fetchCurrentUser()
   } catch (e) {
     console.error(e)
   } finally {
@@ -530,9 +535,10 @@ async function handleUpdatePassword() {
   }
 }
 
-onMounted(() => {
-  loadProfile()
-  loadRecords()
+onMounted(async () => {
+  await loadProfile()
+  await loadRecords()
+  await userStore.fetchCurrentUser()
 })
 </script>
 
