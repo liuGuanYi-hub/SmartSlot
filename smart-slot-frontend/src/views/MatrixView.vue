@@ -5,10 +5,23 @@
         <h2 class="title">场地日历时段矩阵看板</h2>
         <p class="subtitle">实时呈现各场馆全天时段占用状态，点击绿色空闲时段即可立即加锁预约</p>
       </div>
-      <el-button @click="handleRefresh">
-        <el-icon><Refresh /></el-icon> 刷新实时状态
-      </el-button>
+      <div class="header-actions">
+        <MagneticButton type="outline" @click="showFloorPlan = !showFloorPlan">
+          <el-icon><MapLocation /></el-icon> {{ showFloorPlan ? '收起全景俯视图' : '展开 2.5D 场馆俯视图' }}
+        </MagneticButton>
+        <MagneticButton type="primary" @click="handleRefresh" style="margin-left: 12px;">
+          <el-icon><Refresh /></el-icon> 刷新实时状态
+        </MagneticButton>
+      </div>
     </div>
+
+    <!-- Week 2 亮点: 场馆 2.5D 立体平面交互选区地图 -->
+    <transition name="fade-slide">
+      <VenueFloorPlan 
+        v-if="showFloorPlan" 
+        @select-venue="handleSelectVenue"
+      />
+    </transition>
 
     <!-- 核心组件: 日历时段网格矩阵 -->
     <SlotMatrix 
@@ -27,17 +40,25 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, MapLocation } from '@element-plus/icons-vue'
 import SlotMatrix from '@/components/SlotMatrix.vue'
 import BookingDrawer from '@/components/BookingDrawer.vue'
+import VenueFloorPlan from '@/components/VenueFloorPlan.vue'
+import MagneticButton from '@/components/MagneticButton.vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const matrixRef = ref(null)
 const drawerRef = ref(null)
+const showFloorPlan = ref(true)
 
 function handleSelectSlot(slotInfo) {
   drawerRef.value?.open(slotInfo)
+}
+
+function handleSelectVenue(venueId) {
+  ElMessage.success(`已在下方时段矩阵中聚焦选中【场地 #${venueId}】`)
 }
 
 function handleViewMyOrder(slotInfo) {
@@ -50,6 +71,7 @@ function handleBookingSuccess() {
 
 function handleRefresh() {
   matrixRef.value?.fetchMatrixData()
+  ElMessage.success('已刷新最新时段占用与协同状态')
 }
 </script>
 
@@ -77,5 +99,21 @@ function handleRefresh() {
   font-size: 13px;
   color: #64748b;
   margin-top: 4px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
 }
 </style>

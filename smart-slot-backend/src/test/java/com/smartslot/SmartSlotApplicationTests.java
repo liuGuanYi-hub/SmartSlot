@@ -112,11 +112,22 @@ class SmartSlotApplicationTests {
     @Test
     @DisplayName("测试延时队列与超时关单联动 (Redisson/JVM 双模)")
     void testOrderDelayQueueTimeoutCancel() throws InterruptedException {
+        LocalDate testDate = LocalDate.now().plusDays(2);
+        String testSlot = "21:00-22:00";
+        Long testVenueId = 1L;
+
+        // 前置幂等清理
+        bookingOrderService.remove(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookingOrder>()
+                .eq(BookingOrder::getVenueId, testVenueId)
+                .eq(BookingOrder::getBookDate, testDate)
+                .eq(BookingOrder::getTimeSlot, testSlot));
+        luaLockManager.unlockAtomic(String.format("slot:lock:%d:%s:%s", testVenueId, testDate, testSlot), "FORCE_UNLOCK");
+
         // 创建一个测试待支付订单
         BookingCreateDto dto = new BookingCreateDto();
-        dto.setVenueId(1L);
-        dto.setBookDate(LocalDate.now().plusDays(2));
-        dto.setTimeSlot("21:00-22:00");
+        dto.setVenueId(testVenueId);
+        dto.setBookDate(testDate);
+        dto.setTimeSlot(testSlot);
         dto.setContactName("延时测试员");
         dto.setContactPhone("13900008888");
 
@@ -191,6 +202,13 @@ class SmartSlotApplicationTests {
         LocalDate targetDate = LocalDate.now().plusDays(10);
         String targetSlot = "18:00-19:00";
         Long venueId = 1L;
+
+        // 前置幂等清理：确保并发靶点时段纯净未被锁定
+        bookingOrderService.remove(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookingOrder>()
+                .eq(BookingOrder::getVenueId, venueId)
+                .eq(BookingOrder::getBookDate, targetDate)
+                .eq(BookingOrder::getTimeSlot, targetSlot));
+        luaLockManager.unlockAtomic(String.format("slot:lock:%d:%s:%s", venueId, targetDate, targetSlot), "FORCE_UNLOCK");
 
         for (int i = 0; i < threadCount; i++) {
             final long uid = 2000L + i;

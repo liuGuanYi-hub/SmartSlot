@@ -28,10 +28,10 @@
               <span class="number">60.00</span>
               <span class="unit">/ 小时</span>
             </div>
-            <el-button type="primary" size="large" class="feature-btn">
+            <MagneticButton type="primary" class="feature-magnetic-btn">
               即刻进入时段矩阵选场
-              <el-icon class="el-icon--right"><ArrowRight /></el-icon>
-            </el-button>
+              <el-icon><ArrowRight /></el-icon>
+            </MagneticButton>
           </div>
         </div>
       </div>
@@ -43,7 +43,7 @@
           <span class="badge-live">LIVE</span>
         </div>
         <div class="occupancy-wrap">
-          <div class="occupancy-number">76<small>%</small></div>
+          <div class="occupancy-number"><NumberTicker :value="76" /><small>%</small></div>
           <div class="occupancy-meta">
             <div class="meta-title">今日高峰预约率</div>
             <div class="meta-desc">黄金时段(18:00-21:00)紧张</div>
@@ -176,6 +176,8 @@
 import { ref, onMounted } from 'vue'
 import { ArrowRight, Search, Clock, User, Sunny, Lock, Key } from '@element-plus/icons-vue'
 import { getCategories, getVenues } from '@/api/venue'
+import NumberTicker from '@/components/NumberTicker.vue'
+import MagneticButton from '@/components/MagneticButton.vue'
 
 const categories = ref([])
 const venues = ref([])
