@@ -28,4 +28,6 @@ public interface BookingOrderService extends IService<BookingOrder> {
     void addReview(ReviewCreateDto dto, Long userId);
 
     void handleTimeoutOrder(String orderNo);
+
+    int reconcileExpiredOrders();
 }

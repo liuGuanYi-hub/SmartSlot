@@ -9,6 +9,14 @@ export function getOperationLogs(params) {
   })
 }
 
+// 手动触发全链路超时时段与对账自愈
+export function reconcileExpiredOrders() {
+  return request({
+    url: '/api/orders/reconcile',
+    method: 'post'
+  })
+}
+
 // 导出订单流水与对账单 (Alibaba EasyExcel 流式导出)
 export async function downloadOrdersExcel(params) {
   const token = localStorage.getItem('smartslot_token')

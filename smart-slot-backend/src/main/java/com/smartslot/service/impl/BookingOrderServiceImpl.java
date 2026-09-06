@@ -496,6 +496,37 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         }
     }
 
+    /**
+     * 全链路对账与时段状态自愈
+     * 自动扫描数据库中逾期但因极端网络抖动未关闭的超时锁定订单，闭环回补释放时段
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int reconcileExpiredOrders() {
+        LocalDateTime now = LocalDateTime.now();
+        List<BookingOrder> expiredOrders = list(new LambdaQueryWrapper<BookingOrder>()
+                .eq(BookingOrder::getOrderStatus, 0)
+                .le(BookingOrder::getExpireTime, now));
+
+        if (expiredOrders == null || expiredOrders.isEmpty()) {
+            return 0;
+        }
+
+        int healedCount = 0;
+        for (BookingOrder order : expiredOrders) {
+            try {
+                handleTimeoutOrder(order.getOrderNo());
+                healedCount++;
+            } catch (Exception e) {
+                log.error("[对账自愈] 处理超时订单异常: orderNo={}", order.getOrderNo(), e);
+            }
+        }
+        if (healedCount > 0) {
+            log.info("[对账自愈] 自动巡检自愈完成，成功修复并回补释放超时时段 {} 个", healedCount);
+        }
+        return healedCount;
+    }
+
     private void fillOrderDetails(List<BookingOrder> orders) {
         if (orders.isEmpty()) return;
         List<Venue> venues = venueMapper.selectList(null);

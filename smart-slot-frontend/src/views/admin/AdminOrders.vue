@@ -8,6 +8,15 @@
       <div class="header-btns">
         <el-button
           v-permission="['ROLE_ADMIN', 'ROLE_MANAGER']"
+          type="warning"
+          plain
+          :loading="reconciling"
+          @click="handleManualReconcile"
+        >
+          <el-icon><RefreshRight /></el-icon> 异常对账自愈
+        </el-button>
+        <el-button
+          v-permission="['ROLE_ADMIN', 'ROLE_MANAGER']"
           type="primary"
           plain
           :loading="exporting"
@@ -119,9 +128,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Ticket, Download } from '@element-plus/icons-vue'
+import { Ticket, Download, RefreshRight } from '@element-plus/icons-vue'
 import { getAdminOrdersPage } from '@/api/booking'
-import { downloadOrdersExcel } from '@/api/admin'
+import { downloadOrdersExcel, reconcileExpiredOrders } from '@/api/admin'
 import { ElMessage } from 'element-plus'
 import VerifyModal from '@/components/VerifyModal.vue'
 
@@ -134,8 +143,22 @@ const filterOrderNo = ref('')
 const filterPhone = ref('')
 const loading = ref(false)
 const exporting = ref(false)
+const reconciling = ref(false)
 
 const verifyModalRef = ref(null)
+
+async function handleManualReconcile() {
+  reconciling.value = true
+  try {
+    const res = await reconcileExpiredOrders()
+    ElMessage.success(`对账巡检完成！成功自愈超时时段数: ${res}`)
+    fetchOrders()
+  } catch (e) {
+    ElMessage.error(e.message || '对账自愈失败')
+  } finally {
+    reconciling.value = false
+  }
+}
 
 async function handleExportOrders() {
   exporting.value = true

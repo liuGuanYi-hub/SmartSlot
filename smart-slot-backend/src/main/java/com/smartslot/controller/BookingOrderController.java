@@ -105,4 +105,13 @@ public class BookingOrderController {
         
         return Result.success(new PageResult<>(page.getRecords(), page.getTotal(), page.getCurrent(), page.getSize(), page.getPages()));
     }
+
+    @Operation(summary = "手动触发全链路超时时段与对账自愈")
+    @RequiresRoles({UserRole.ROLE_ADMIN, UserRole.ROLE_MANAGER})
+    @LogRecord(module = "订单与履约", operation = "手动触发全链路超时自愈对账")
+    @PostMapping("/orders/reconcile")
+    public Result<Integer> manualReconcile() {
+        int count = orderService.reconcileExpiredOrders();
+        return Result.success("成功完成全链路对账巡检，自愈超时时段数: " + count, count);
+    }
 }
