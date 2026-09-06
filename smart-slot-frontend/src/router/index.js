@@ -23,6 +23,11 @@ const routes = [
     component: MatrixView
   },
   {
+    path: '/venue/:id',
+    name: 'VenueDetail',
+    component: () => import('@/views/VenueDetailView.vue')
+  },
+  {
     path: '/my-bookings',
     name: 'MyBookings',
     component: MyBookingsView,

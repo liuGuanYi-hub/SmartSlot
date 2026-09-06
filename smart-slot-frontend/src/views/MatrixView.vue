@@ -40,20 +40,31 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Refresh, MapLocation } from '@element-plus/icons-vue'
 import SlotMatrix from '@/components/SlotMatrix.vue'
 import BookingDrawer from '@/components/BookingDrawer.vue'
 import VenueFloorPlan from '@/components/VenueFloorPlan.vue'
 import MagneticButton from '@/components/MagneticButton.vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+const route = useRoute()
 const router = useRouter()
 const matrixRef = ref(null)
 const drawerRef = ref(null)
 const showFloorPlan = ref(true)
 const activeVenueId = ref(null)
+
+onMounted(() => {
+  if (route.query.focusVenueId) {
+    const targetId = Number(route.query.focusVenueId)
+    setTimeout(() => {
+      activeVenueId.value = targetId
+      matrixRef.value?.focusVenue(targetId)
+    }, 350)
+  }
+})
 
 function handleSelectSlot(slotInfo) {
   drawerRef.value?.open(slotInfo)

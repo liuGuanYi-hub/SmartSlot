@@ -162,14 +162,24 @@
             <span class="open-time">
               <el-icon><Clock /></el-icon> {{ v.openTime }} ~ {{ v.closeTime }}
             </span>
-            <el-button 
-              type="primary" 
-              class="book-btn shimmer-badge" 
-              size="small" 
-              @click="$router.push(`/matrix?categoryId=${v.categoryId}`)"
-            >
-              时段排期预约
-            </el-button>
+            <div class="action-btn-group">
+              <el-button 
+                size="small" 
+                plain
+                class="detail-btn"
+                @click="$router.push(`/venue/${v.id}`)"
+              >
+                实景详情
+              </el-button>
+              <el-button 
+                type="primary" 
+                class="book-btn shimmer-badge" 
+                size="small" 
+                @click="$router.push(`/matrix?focusVenueId=${v.id}`)"
+              >
+                时段排期
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -697,6 +707,18 @@ onMounted(() => {
   border-radius: 8px;
   font-weight: 700;
   padding: 8px 16px;
+}
+
+.action-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-btn {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 8px 12px;
 }
 
 @media (max-width: 900px) {
