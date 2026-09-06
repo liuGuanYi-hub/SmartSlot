@@ -111,6 +111,13 @@
             <version>${knife4j.version}</version>
         </dependency>
 
+        <!-- Alibaba EasyExcel 工业级高性能流式报表导入导出 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>3.3.4</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

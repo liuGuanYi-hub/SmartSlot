@@ -5,9 +5,19 @@
         <h2 class="title">场地配置管理</h2>
         <p class="subtitle">配置场馆开放场地、多规格时段收费单价与设施信息</p>
       </div>
-      <el-button type="primary" @click="openAddDialog">
-        <el-icon><Plus /></el-icon> 新增场地
-      </el-button>
+      <div class="header-btns">
+        <el-button
+          type="success"
+          plain
+          :loading="exporting"
+          @click="handleExportVenues"
+        >
+          <el-icon><Download /></el-icon> 导出排期表 (.xlsx)
+        </el-button>
+        <el-button type="primary" @click="openAddDialog">
+          <el-icon><Plus /></el-icon> 新增场地
+        </el-button>
+      </div>
     </div>
 
     <!-- 筛选搜索栏 -->
@@ -149,8 +159,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Download } from '@element-plus/icons-vue'
 import { getAdminVenuesPage, saveVenue, deleteVenue, getCategories } from '@/api/venue'
+import { downloadVenuesExcel } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const categories = ref([])
@@ -161,6 +172,19 @@ const pageSize = ref(10)
 const filterCategoryId = ref(null)
 const filterKeyword = ref('')
 const loading = ref(false)
+const exporting = ref(false)
+
+async function handleExportVenues() {
+  exporting.value = true
+  try {
+    await downloadVenuesExcel()
+    ElMessage.success('场地排期总表导出成功，正在下载中！')
+  } catch (e) {
+    ElMessage.error(e.message || '导出排期表失败')
+  } finally {
+    exporting.value = false
+  }
+}
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -291,6 +315,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .title {

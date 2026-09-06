@@ -5,9 +5,20 @@
         <h2 class="title">预约订单检索与核销中心</h2>
         <p class="subtitle">实时监控会员预约订单状态、处理退订及快速核验 6 位入场核销码</p>
       </div>
-      <el-button type="success" @click="openQuickVerify">
-        <el-icon><Ticket /></el-icon> 快捷核销入场
-      </el-button>
+      <div class="header-btns">
+        <el-button
+          v-permission="['ROLE_ADMIN', 'ROLE_MANAGER']"
+          type="primary"
+          plain
+          :loading="exporting"
+          @click="handleExportOrders"
+        >
+          <el-icon><Download /></el-icon> 导出对账单 (.xlsx)
+        </el-button>
+        <el-button type="success" @click="openQuickVerify">
+          <el-icon><Ticket /></el-icon> 快捷核销入场
+        </el-button>
+      </div>
     </div>
 
     <!-- 筛选搜索栏 -->
@@ -108,8 +119,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Ticket } from '@element-plus/icons-vue'
+import { Ticket, Download } from '@element-plus/icons-vue'
 import { getAdminOrdersPage } from '@/api/booking'
+import { downloadOrdersExcel } from '@/api/admin'
+import { ElMessage } from 'element-plus'
 import VerifyModal from '@/components/VerifyModal.vue'
 
 const orderList = ref([])
@@ -120,8 +133,25 @@ const filterStatus = ref(null)
 const filterOrderNo = ref('')
 const filterPhone = ref('')
 const loading = ref(false)
+const exporting = ref(false)
 
 const verifyModalRef = ref(null)
+
+async function handleExportOrders() {
+  exporting.value = true
+  try {
+    await downloadOrdersExcel({
+      status: filterStatus.value,
+      orderNo: filterOrderNo.value,
+      phone: filterPhone.value
+    })
+    ElMessage.success('对账单导出就绪，已通过浏览器流式下载！')
+  } catch (e) {
+    ElMessage.error(e.message || '导出失败')
+  } finally {
+    exporting.value = false
+  }
+}
 
 async function fetchOrders() {
   loading.value = true
@@ -193,6 +223,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .title {
