@@ -175,7 +175,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { CopyDocument } from '@element-plus/icons-vue'
-import { getMyOrdersPage, payOrder, cancelOrder, submitReview } from '@/api/booking'
+import { getMyOrdersPage, payOrder, cancelOrder, submitReview, getIdempotentToken } from '@/api/booking'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const activeTab = ref('all')
@@ -258,7 +258,8 @@ async function openPayModal(order) {
     await ElMessageBox.confirm(`确认使用虚拟账户余额支付 ￥${order.totalAmount} 吗？`, '快速支付确认', {
       type: 'warning'
     })
-    await payOrder(order.orderNo)
+    const token = await getIdempotentToken()
+    await payOrder(order.orderNo, token)
     ElMessage.success('支付成功，已生成核销凭证！')
     fetchOrders()
   } catch (e) {

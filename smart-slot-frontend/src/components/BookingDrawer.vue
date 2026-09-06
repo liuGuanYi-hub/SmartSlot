@@ -173,7 +173,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { User, Iphone, CopyDocument } from '@element-plus/icons-vue'
-import { lockAndCreateOrder, payOrder } from '@/api/booking'
+import { lockAndCreateOrder, payOrder, getIdempotentToken } from '@/api/booking'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -232,13 +232,14 @@ async function submitBooking() {
 
   submitting.value = true
   try {
+    const token = await getIdempotentToken()
     const res = await lockAndCreateOrder({
       venueId: slotData.value.venue?.id || slotData.value.venue?.venueId,
       bookDate: slotData.value.date,
       timeSlot: slotData.value.timeSlot,
       contactName: formData.contactName,
       contactPhone: formData.contactPhone
-    })
+    }, token)
     createdOrder.value = res
     payDialogVisible.value = true
     visible.value = false
@@ -253,7 +254,8 @@ async function submitBooking() {
 async function handlePay() {
   paying.value = true
   try {
-    const res = await payOrder(createdOrder.value.orderNo)
+    const token = await getIdempotentToken()
+    const res = await payOrder(createdOrder.value.orderNo, token)
     paidOrder.value = res
     paymentSuccess.value = true
     await userStore.fetchCurrentUser()

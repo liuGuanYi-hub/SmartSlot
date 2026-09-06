@@ -1,6 +1,7 @@
 package com.smartslot.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.smartslot.annotation.Idempotent;
 import com.smartslot.common.PageResult;
 import com.smartslot.common.Result;
 import com.smartslot.common.UserContext;
@@ -23,6 +24,7 @@ public class BookingOrderController {
     private final BookingOrderService orderService;
 
     @Operation(summary = "锁定并创建预约订单 (核心防超卖接口)")
+    @Idempotent(message = "时段预约请求正在处理中，请勿重复点击")
     @PostMapping("/orders/lock-and-create")
     public Result<BookingOrder> lockAndCreateOrder(@Valid @RequestBody BookingCreateDto dto) {
         Long userId = UserContext.getUserId();
@@ -30,6 +32,7 @@ public class BookingOrderController {
     }
 
     @Operation(summary = "模拟支付订单 (生成 6 位核销码)")
+    @Idempotent(message = "订单正在支付中，请勿重复扣款")
     @PostMapping("/orders/pay/{orderNo}")
     public Result<BookingOrder> payOrder(@PathVariable String orderNo) {
         Long userId = UserContext.getUserId();

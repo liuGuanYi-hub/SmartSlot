@@ -37,6 +37,9 @@ class SmartSlotApplicationTests {
     @Autowired
     private com.smartslot.service.WebSocketPushService webSocketPushService;
 
+    @Autowired
+    private com.smartslot.service.IdempotentTokenService idempotentTokenService;
+
     @Test
     @DisplayName("测试系统上下文与数据库连通性")
     void contextLoads() {
@@ -45,6 +48,7 @@ class SmartSlotApplicationTests {
         Assertions.assertNotNull(luaLockManager);
         Assertions.assertNotNull(orderDelayQueueService);
         Assertions.assertNotNull(webSocketPushService);
+        Assertions.assertNotNull(idempotentTokenService);
     }
 
     @Test
@@ -150,5 +154,74 @@ class SmartSlotApplicationTests {
             webSocketPushService.broadcastOnlineCount();
         });
         Assertions.assertTrue(webSocketPushService.getOnlineCount() >= 0);
+    }
+
+    @Test
+    @DisplayName("测试接口幂等性 Token 机制 (生成/首次消费成功/重复消费拒绝)")
+    void testIdempotentTokenMechanism() {
+        String token = idempotentTokenService.generateToken();
+        Assertions.assertNotNull(token);
+        Assertions.assertTrue(token.startsWith("IDEMP_"));
+
+        // 首次消费必须成功
+        boolean firstConsume = idempotentTokenService.verifyAndConsume(token);
+        Assertions.assertTrue(firstConsume, "首次消费幂等 Token 应成功");
+
+        // 第二次重复消费必须被拦截
+        boolean secondConsume = idempotentTokenService.verifyAndConsume(token);
+        Assertions.assertFalse(secondConsume, "重复使用已消费的 Token 必须被拒绝拦截");
+
+        // 伪造非法 Token 必须被拦截
+        boolean fakeConsume = idempotentTokenService.verifyAndConsume("FAKE_TOKEN_XYZ");
+        Assertions.assertFalse(fakeConsume, "伪造 Token 必须被拒绝拦截");
+    }
+
+    @Test
+    @DisplayName("Day 6-7 并发压力测试: 30 线程瞬时并发争抢同一时段 (绝对零超卖验证)")
+    void testHighConcurrencyAntiOverselling() throws InterruptedException {
+        int threadCount = 30;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch readyLatch = new java.util.concurrent.CountDownLatch(threadCount);
+        java.util.concurrent.CountDownLatch startLatch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(threadCount);
+
+        java.util.concurrent.atomic.AtomicInteger successCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger failCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        LocalDate targetDate = LocalDate.now().plusDays(10);
+        String targetSlot = "18:00-19:00";
+        Long venueId = 1L;
+
+        for (int i = 0; i < threadCount; i++) {
+            final long uid = 2000L + i;
+            executor.submit(() -> {
+                readyLatch.countDown();
+                try {
+                    startLatch.await(); // 等待所有线程就绪，发令枪响齐发
+                    BookingCreateDto dto = new BookingCreateDto();
+                    dto.setVenueId(venueId);
+                    dto.setBookDate(targetDate);
+                    dto.setTimeSlot(targetSlot);
+                    dto.setContactName("并发测试员_" + uid);
+                    dto.setContactPhone("13800138000");
+
+                    bookingOrderService.lockAndCreateOrder(dto, uid);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failCount.incrementAndGet();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        readyLatch.await();
+        startLatch.countDown(); // 30 线程瞬时并发齐发！
+        doneLatch.await();
+        executor.shutdown();
+
+        // 验证断言: 必须且仅有 1 个线程抢购成功，其余全部被互斥拒绝！
+        Assertions.assertEquals(1, successCount.get(), "高并发冲击下必须有且仅有 1 笔成功订单，杜绝超卖");
+        Assertions.assertEquals(threadCount - 1, failCount.get(), "其余所有并发请求必须被互斥拒绝");
     }
 }

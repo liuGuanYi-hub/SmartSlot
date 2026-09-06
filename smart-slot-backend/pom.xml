@@ -40,6 +40,12 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- Spring Boot AOP (接口幂等性切面与安全审计) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- Spring Boot Validation (JSR-303 表单验证) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

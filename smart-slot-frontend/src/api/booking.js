@@ -1,19 +1,29 @@
 import request from './request'
 
-// 核心锁定并创建订单
-export function lockAndCreateOrder(data) {
+// 获取一次性接口防重放幂等 Token
+export function getIdempotentToken() {
+  return request({
+    url: '/common/idempotent-token',
+    method: 'get'
+  })
+}
+
+// 核心锁定并创建订单 (携带幂等 Token 防重复提交)
+export function lockAndCreateOrder(data, idempotentToken) {
   return request({
     url: '/orders/lock-and-create',
     method: 'post',
+    headers: idempotentToken ? { 'Idempotent-Token': idempotentToken } : {},
     data
   })
 }
 
-// 模拟支付
-export function payOrder(orderNo) {
+// 模拟支付 (携带幂等 Token 防重复扣款)
+export function payOrder(orderNo, idempotentToken) {
   return request({
     url: `/orders/pay/${orderNo}`,
-    method: 'post'
+    method: 'post',
+    headers: idempotentToken ? { 'Idempotent-Token': idempotentToken } : {}
   })
 }
 
