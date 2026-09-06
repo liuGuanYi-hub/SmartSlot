@@ -12,28 +12,28 @@
 
     <!-- 4 大核心指标卡片 -->
     <el-row :gutter="16" class="metric-row">
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="6">
         <div class="metric-card card-shadow">
           <div class="metric-label">累计营业收入</div>
           <div class="metric-value text-indigo">￥{{ stats?.totalRevenue || '0.00' }}</div>
           <div class="metric-desc">在线已支付订单累计</div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="6">
         <div class="metric-card card-shadow">
           <div class="metric-label">有效预约订单</div>
           <div class="metric-value text-emerald">{{ stats?.totalOrders || 0 }} 单</div>
           <div class="metric-desc">预约成功及已核销</div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="6">
         <div class="metric-card card-shadow">
           <div class="metric-label">今日排期预约</div>
           <div class="metric-value text-amber">{{ stats?.todayBookings || 0 }} 场</div>
           <div class="metric-desc">今日实时占用时段</div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="6">
         <div class="metric-card card-shadow">
           <div class="metric-label">注册会员用户</div>
           <div class="metric-value text-slate">{{ stats?.totalUsers || 0 }} 人</div>
@@ -89,12 +89,12 @@ onMounted(() => {
 .title {
   font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -105,12 +105,14 @@ onMounted(() => {
 .metric-card {
   padding: 20px;
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 12px;
 }
 
 .metric-label {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -122,13 +124,13 @@ onMounted(() => {
 
 .metric-desc {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .text-indigo { color: #4f46e5; }
 .text-emerald { color: #059669; }
 .text-amber { color: #d97706; }
-.text-slate { color: #334155; }
+.text-slate { color: var(--text-main); }
 
 .charts-wrap {
   margin-top: 8px;

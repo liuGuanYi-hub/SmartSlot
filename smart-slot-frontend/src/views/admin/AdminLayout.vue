@@ -59,13 +59,13 @@ function openQuickVerify() {
 <style scoped>
 .admin-container {
   display: flex;
-  min-height: calc(100vh - 65px);
+  min-height: calc(100vh - 70px);
 }
 
 .admin-sidebar {
   width: 220px;
-  background: #ffffff;
-  border-right: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
 }
@@ -77,24 +77,39 @@ function openQuickVerify() {
   gap: 8px;
   font-weight: 700;
   font-size: 15px;
-  color: #0f172a;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .admin-menu {
   border-right: none;
   flex: 1;
+  background: transparent;
 }
 
 .sidebar-verify-box {
   padding: 16px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .admin-main {
   flex: 1;
   padding: 24px;
-  background: #f8fafc;
+  background: var(--bg-color);
   overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .admin-container {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .admin-main {
+    padding: 14px;
+  }
 }
 </style>

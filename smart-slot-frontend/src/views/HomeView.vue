@@ -236,16 +236,16 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
   padding: 8px 18px;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .ticker-text {
   font-size: 13px;
-  color: #334155;
+  color: var(--text-main);
 }
 
 /* Bento Hero Grid (Awwwards 风格异构网格) */
@@ -261,6 +261,8 @@ onMounted(() => {
   border-radius: 20px;
   overflow: hidden;
   position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
 }
 
 .bento-feature {
@@ -272,6 +274,7 @@ onMounted(() => {
   padding: 40px;
   color: #ffffff;
   cursor: pointer;
+  border: none;
 }
 
 .feature-bg-image {
@@ -342,6 +345,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .price-box {
@@ -377,7 +382,7 @@ onMounted(() => {
 
 /* Bento Stats Card */
 .bento-stats {
-  background: #ffffff;
+  background: var(--card-bg);
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -393,14 +398,14 @@ onMounted(() => {
 .sub-label {
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .badge-live {
   font-size: 11px;
   font-weight: 800;
   color: #10b981;
-  background: #ecfdf5;
+  background: rgba(16, 185, 129, 0.12);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -415,7 +420,7 @@ onMounted(() => {
 .occupancy-number {
   font-size: 48px;
   font-weight: 900;
-  color: #0f172a;
+  color: var(--text-main);
   letter-spacing: -2px;
 }
 
@@ -427,7 +432,7 @@ onMounted(() => {
 .meta-title {
   font-size: 15px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-main);
 }
 
 .meta-desc {
@@ -438,13 +443,13 @@ onMounted(() => {
 
 .hint-text {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
 /* Bento Hardware Card */
 .bento-hardware {
-  background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%);
+  background: linear-gradient(135deg, var(--card-bg-elevated) 0%, var(--card-bg) 100%);
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
@@ -462,7 +467,7 @@ onMounted(() => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--card-bg);
   color: #4f46e5;
   display: flex;
   align-items: center;
@@ -478,12 +483,12 @@ onMounted(() => {
 
 .hw-text strong {
   font-size: 13px;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .hw-text span {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* 筛选工具栏 */
@@ -505,18 +510,18 @@ onMounted(() => {
 .pill-item {
   padding: 8px 18px;
   border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pill-item:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
   transform: translateY(-1px);
 }
 
@@ -534,18 +539,21 @@ onMounted(() => {
 /* 场地卡片网格 */
 .venues-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 24px;
 }
 
 .venue-card-item {
   border-radius: 18px;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .venue-card-item:hover {
   transform: translateY(-5px);
+  border-color: var(--border-hover);
 }
 
 .venue-img-wrap {
@@ -611,7 +619,7 @@ onMounted(() => {
 .venue-name-row .name {
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .venue-name-row .price {
@@ -629,13 +637,13 @@ onMounted(() => {
 
 .venue-name-row .price small {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .desc {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.6;
   margin-bottom: 14px;
   display: -webkit-box;
@@ -654,8 +662,8 @@ onMounted(() => {
 .facility-pill {
   font-size: 11px;
   font-weight: 600;
-  color: #475569;
-  background: #f1f5f9;
+  color: var(--text-secondary);
+  background: var(--card-bg-elevated);
   padding: 3px 8px;
   border-radius: 6px;
 }
@@ -665,12 +673,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding-top: 14px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .open-time {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -688,6 +696,25 @@ onMounted(() => {
   }
   .bento-feature {
     grid-row: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-container {
+    padding: 12px 14px 40px;
+  }
+  .bento-feature {
+    padding: 24px 20px;
+    min-height: 320px;
+  }
+  .feature-title {
+    font-size: 22px;
+  }
+  .search-input {
+    width: 100%;
+  }
+  .venues-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

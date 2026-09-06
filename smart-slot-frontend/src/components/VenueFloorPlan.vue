@@ -31,18 +31,38 @@
             <stop offset="0%" stop-color="#ecfdf5" />
             <stop offset="100%" stop-color="#d1fae5" />
           </linearGradient>
+          <linearGradient id="badmintonGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#064e3b" />
+            <stop offset="100%" stop-color="#022c22" />
+          </linearGradient>
+
           <linearGradient id="tennisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#eff6ff" />
             <stop offset="100%" stop-color="#dbeafe" />
           </linearGradient>
+          <linearGradient id="tennisGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e3a8a" />
+            <stop offset="100%" stop-color="#0f172a" />
+          </linearGradient>
+
           <linearGradient id="basketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#fffbeb" />
             <stop offset="100%" stop-color="#fef3c7" />
           </linearGradient>
+          <linearGradient id="basketGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#78350f" />
+            <stop offset="100%" stop-color="#451a03" />
+          </linearGradient>
+
           <linearGradient id="roomGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#f5f3ff" />
             <stop offset="100%" stop-color="#ede9fe" />
           </linearGradient>
+          <linearGradient id="roomGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4c1d95" />
+            <stop offset="100%" stop-color="#2e1065" />
+          </linearGradient>
+
           <filter id="glow-hover" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="6" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -50,7 +70,7 @@
         </defs>
 
         <!-- 场馆地板基底 -->
-        <rect x="10" y="10" width="940" height="340" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+        <rect x="10" y="10" width="940" height="340" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" class="svg-floor-bg" />
         <rect x="10" y="10" width="940" height="340" rx="16" fill="url(#floor-grid)" />
 
         <!-- 场馆主过道与指示 -->
@@ -158,7 +178,7 @@
 
         <!-- 右上角场馆服务中心前台 -->
         <g class="reception-box">
-          <rect x="715" y="30" width="210" height="130" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3" />
+          <rect x="715" y="30" width="210" height="130" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3" class="svg-reception-bg" />
           <text x="820" y="65" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">SERVICES · 综合服务中心</text>
           <text x="820" y="90" text-anchor="middle" font-size="10" fill="#64748b">前台核销入场 · 运动饮品站</text>
           <text x="820" y="110" text-anchor="middle" font-size="10" fill="#64748b">急救箱 · 护具器械租借</text>
@@ -182,11 +202,11 @@ function selectVenue(id) {
 
 <style scoped>
 .venue-floor-plan-card {
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: 20px;
   padding: 20px 24px;
   margin-bottom: 24px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-subtle);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -203,10 +223,10 @@ function selectVenue(id) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  background: var(--pill-bg);
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid #86efac;
+  border: 1px solid var(--pill-border);
 }
 
 .pulse-ring {
@@ -227,20 +247,21 @@ function selectVenue(id) {
 .tag-text {
   font-size: 13px;
   font-weight: 700;
-  color: #065f46;
+  color: var(--pill-text);
 }
 
 .header-sub {
   margin-left: 12px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .svg-map-wrapper {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--card-bg-elevated);
 }
 
 .floor-plan-svg {
@@ -258,11 +279,21 @@ function selectVenue(id) {
 
 .court-group:hover rect:first-child {
   stroke-width: 2.5px;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.08));
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25));
   transform: translateY(-2px);
 }
 
 .court-group.active rect:first-child {
   stroke-width: 3px;
+}
+
+:global(html.dark) .svg-floor-bg {
+  fill: #0b1120;
+  stroke: #1e293b;
+}
+
+:global(html.dark) .svg-reception-bg {
+  fill: #1e293b;
+  stroke: #334155;
 }
 </style>

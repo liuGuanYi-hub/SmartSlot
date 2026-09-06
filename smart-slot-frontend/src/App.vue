@@ -44,8 +44,23 @@
           </router-link>
         </nav>
 
-        <!-- 用户登录与个人状态 -->
+        <!-- 用户登录与个人状态与主题切换 -->
         <div class="user-status-zone">
+          <!-- 主题模式切换按钮 (View Transitions 圆形水波转场) -->
+          <el-tooltip :content="isDark ? '切换至晨曦浅色模式' : '切换至暗黑极夜模式'" placement="bottom">
+            <button 
+              class="theme-toggle-btn gpu-accel" 
+              @click="toggleTheme($event)" 
+              :title="isDark ? '切换至晨曦浅色模式' : '切换至暗黑极夜模式'"
+              aria-label="Toggle theme"
+            >
+              <el-icon :size="17" class="theme-icon">
+                <Sunny v-if="isDark" />
+                <Moon v-else />
+              </el-icon>
+            </button>
+          </el-tooltip>
+
           <template v-if="userStore.isLoggedIn">
             <div class="balance-pill">
               <span class="balance-label">账户余额</span>
@@ -81,9 +96,77 @@
               会员登录 / 注册
             </el-button>
           </template>
+
+          <!-- 移动端汉堡折叠按钮 -->
+          <button class="mobile-menu-btn" @click="mobileDrawer = true" aria-label="Open mobile menu">
+            <el-icon :size="20"><MenuIcon /></el-icon>
+          </button>
         </div>
       </div>
     </header>
+
+    <!-- 移动端抽屉侧滑导航 (极致响应式触控) -->
+    <el-drawer
+      v-model="mobileDrawer"
+      title="SmartSlot 快捷导航"
+      direction="rtl"
+      size="280px"
+      :with-header="true"
+    >
+      <div class="mobile-drawer-content">
+        <div v-if="userStore.isLoggedIn" class="mobile-user-card">
+          <el-avatar :size="48" :src="userStore.userInfo?.avatar" />
+          <div class="mobile-user-info">
+            <span class="m-name">{{ userStore.userInfo?.nickname || userStore.userInfo?.username }}</span>
+            <span class="m-bal">余额: ￥{{ userStore.userInfo?.balance || 0 }}</span>
+          </div>
+        </div>
+
+        <nav class="mobile-nav-list">
+          <router-link to="/" class="m-nav-item" @click="mobileDrawer = false">
+            <el-icon><Calendar /></el-icon> 场馆全景
+          </router-link>
+          <router-link to="/matrix" class="m-nav-item" @click="mobileDrawer = false">
+            <el-icon><Calendar /></el-icon> 日历时段矩阵
+          </router-link>
+          <router-link to="/my-bookings" class="m-nav-item" @click="mobileDrawer = false">
+            <el-icon><List /></el-icon> 我的预约行程
+          </router-link>
+          <router-link 
+            v-if="userStore.isAdmin" 
+            to="/admin/dashboard" 
+            class="m-nav-item admin-m-link" 
+            @click="mobileDrawer = false"
+          >
+            <el-icon><Platform /></el-icon> 运营控制台
+          </router-link>
+        </nav>
+
+        <div class="mobile-drawer-footer">
+          <button class="m-theme-toggle" @click="toggleTheme($event)">
+            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
+            <span>{{ isDark ? '切换至晨曦浅色' : '切换至极夜暗黑' }}</span>
+          </button>
+          <el-button 
+            v-if="userStore.isLoggedIn" 
+            type="danger" 
+            plain 
+            style="width: 100%; margin-top: 12px;" 
+            @click="handleLogout(); mobileDrawer = false;"
+          >
+            安全退出登录
+          </el-button>
+          <el-button 
+            v-else 
+            type="primary" 
+            style="width: 100%; margin-top: 12px;" 
+            @click="$router.push('/login'); mobileDrawer = false;"
+          >
+            登录 / 注册
+          </el-button>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- 页面主体容器 -->
     <main class="page-body">
@@ -93,14 +176,17 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { Calendar, List, Platform, SwitchButton } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { initTheme, useTheme } from '@/composables/useTheme'
 
 const userStore = useUserStore()
 const router = useRouter()
+const { isDark, toggleTheme } = useTheme()
+const mobileDrawer = ref(false)
 
 function handleLogout() {
   userStore.logout()
@@ -109,6 +195,7 @@ function handleLogout() {
 }
 
 onMounted(() => {
+  initTheme()
   userStore.fetchCurrentUser()
 })
 </script>
@@ -170,14 +257,14 @@ onMounted(() => {
 .brand-text {
   font-size: 19px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
 
 .brand-sub {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.5px;
   margin-top: 2px;
@@ -187,12 +274,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 12px;
-  color: #166534;
+  color: var(--pill-text);
   font-weight: 500;
 }
 
@@ -205,7 +292,7 @@ onMounted(() => {
 .nav-item {
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
   position: relative;
   padding: 8px 0;
@@ -245,22 +332,42 @@ onMounted(() => {
 .user-status-zone {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+}
+
+.theme-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-toggle-btn:hover {
+  transform: rotate(15deg) scale(1.08);
+  border-color: var(--primary-light);
+  color: var(--primary-color);
 }
 
 .balance-pill {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border-subtle);
   padding: 5px 14px;
   border-radius: 20px;
   font-size: 13px;
 }
 
 .balance-label {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -280,7 +387,7 @@ onMounted(() => {
 }
 
 .user-profile-btn:hover {
-  background: #f1f5f9;
+  background: var(--card-bg-elevated);
 }
 
 .user-name-role {
@@ -292,7 +399,7 @@ onMounted(() => {
 .username {
   font-size: 13px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-main);
   line-height: 1.2;
 }
 
@@ -307,6 +414,105 @@ onMounted(() => {
   font-weight: 600;
   padding: 8px 20px;
   box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+.mobile-menu-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mobile-drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.mobile-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--card-bg-elevated);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.mobile-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.m-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.m-bal {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 600;
+}
+
+.mobile-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.m-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.m-nav-item:hover, .m-nav-item.router-link-active {
+  background: var(--card-bg-elevated);
+  color: var(--primary-color);
+}
+
+.m-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .nav-links, .live-engine-pill, .balance-pill {
+    display: none;
+  }
+  .mobile-menu-btn {
+    display: flex;
+  }
+  .nav-content {
+    padding: 0 16px;
+  }
 }
 
 .page-body {

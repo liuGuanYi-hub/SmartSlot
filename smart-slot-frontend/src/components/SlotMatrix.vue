@@ -61,6 +61,12 @@
       </div>
     </div>
 
+    <!-- 移动端手势横滑提示 -->
+    <div class="mobile-swipe-tip">
+      <el-icon><Right /></el-icon>
+      <span>移动端支持左右手势平滑滑动查看所有场地排期</span>
+    </div>
+
     <!-- 核心日历矩阵看板表格 -->
     <div v-loading="loading" class="matrix-grid-scroll-wrap">
       <div v-if="matrixData?.venues?.length" class="matrix-board">
@@ -153,7 +159,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ArrowLeft, ArrowRight, Clock, Check, Lock } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Clock, Check, Lock, Right } from '@element-plus/icons-vue'
 import { getSlotMatrix, getCategories } from '@/api/venue'
 import dayjs from 'dayjs'
 import { ElMessage, ElNotification } from 'element-plus'
@@ -483,20 +489,20 @@ defineExpose({
 }
 
 .matrix-filter-pill {
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
   padding: 5px 14px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .matrix-filter-pill:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--border-hover);
+  color: var(--text-main);
 }
 
 .matrix-filter-pill.active {
@@ -505,11 +511,23 @@ defineExpose({
   border-color: #4f46e5;
 }
 
+.mobile-swipe-tip {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
 .matrix-grid-scroll-wrap {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--card-bg);
 }
 
 .matrix-board {
@@ -523,8 +541,8 @@ defineExpose({
 }
 
 .header-row {
-  background: #f8fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--card-bg-elevated);
+  border-bottom: 2px solid var(--border-subtle);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -537,14 +555,14 @@ defineExpose({
   justify-content: center;
   align-items: center;
   text-align: center;
-  border-right: 1px solid #f1f5f9;
+  border-right: 1px solid var(--border-subtle);
 }
 
 .time-col-header, .time-col-label {
   width: 136px;
   min-width: 136px;
-  background: #f8fafc;
-  border-right: 2px solid #e2e8f0;
+  background: var(--card-bg-elevated);
+  border-right: 2px solid var(--border-subtle);
   position: sticky;
   left: 0;
   z-index: 5;
@@ -554,7 +572,7 @@ defineExpose({
   flex-direction: row;
   gap: 6px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-main);
   font-size: 13px;
 }
 
@@ -562,7 +580,7 @@ defineExpose({
   flex-direction: row;
   gap: 6px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
   font-family: monospace;
 }
@@ -576,7 +594,7 @@ defineExpose({
 }
 
 .current-hour-row {
-  background-color: #f5f3ff !important;
+  background-color: rgba(99, 102, 241, 0.08) !important;
 }
 
 .venue-col-header {
@@ -587,7 +605,7 @@ defineExpose({
 .v-name {
   font-size: 14px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -603,8 +621,8 @@ defineExpose({
 
 .v-category-badge {
   font-size: 11px;
-  background: #ede9fe;
-  color: #6366f1;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 4px;
@@ -612,12 +630,12 @@ defineExpose({
 
 .v-price-badge {
   font-size: 11px;
-  color: #059669;
+  color: #10b981;
   font-weight: 700;
 }
 
 .data-row {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.15s ease;
 }
 
@@ -771,5 +789,52 @@ defineExpose({
   animation: slotFlashAnimation 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
   z-index: 5;
   position: relative;
+}
+
+/* 深色模式下的各状态色阶自适应 */
+:global(html.dark) .slot-available {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+:global(html.dark) .slot-available:hover {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+}
+:global(html.dark) .slot-pending {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+:global(html.dark) .slot-booked {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+:global(html.dark) .slot-mine {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+  color: #c4b5fd;
+  border: 1.5px solid #8b5cf6;
+}
+:global(html.dark) .slot-maintenance {
+  background-color: rgba(100, 116, 139, 0.12);
+  color: #64748b;
+  border: 1px dashed rgba(100, 116, 139, 0.25);
+}
+
+@media (max-width: 768px) {
+  .matrix-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .status-legend-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mobile-swipe-tip {
+    display: flex;
+  }
 }
 </style>

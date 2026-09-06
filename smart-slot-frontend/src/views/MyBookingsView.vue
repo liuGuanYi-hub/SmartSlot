@@ -118,7 +118,7 @@
       </div>
     </el-card>
 
-    <!-- 拟物化数字票据弹窗 (21st.dev 风格) -->
+    <!-- 拟物化数字票据弹窗 (21st.dev 风格全息防伪升级) -->
     <el-dialog v-model="codeDialogVisible" title="数字入场核销凭证" width="380px" center>
       <div class="ticket-container card-shadow" v-if="currentOrder">
         <div class="ticket-notch-left"></div>
@@ -127,18 +127,54 @@
         <div class="ticket-top-section">
           <div class="stub-venue-name">{{ currentOrder.venueName }}</div>
           <div class="stub-date-slot">{{ currentOrder.bookDate }} · {{ currentOrder.timeSlot }}</div>
-          <div class="stub-user-hint">凭此 6 位核销码向前台出示核验入场</div>
+          <div class="stub-user-hint">持票人：{{ currentOrder.contactName || '尊享会员' }}</div>
         </div>
 
         <div class="ticket-perforation"></div>
 
         <div class="ticket-bottom-section">
+          <!-- 全息彩虹防伪带 -->
+          <div class="holographic-foil-strip"></div>
+          
+          <div class="stub-user-hint" style="margin-top: 8px;">到场核验凭证码 (VERIFY PASS)</div>
           <div class="stub-number-code">{{ currentOrder.verifyCode }}</div>
+          
+          <!-- 拟真动态二维码与防伪条 -->
+          <div class="ticket-qr-box">
+            <svg viewBox="0 0 100 100" class="qr-svg">
+              <rect x="10" y="10" width="24" height="24" rx="4" fill="#0f172a" />
+              <rect x="14" y="14" width="16" height="16" rx="2" fill="#ffffff" />
+              <rect x="18" y="18" width="8" height="8" rx="1" fill="#0f172a" />
+              
+              <rect x="66" y="10" width="24" height="24" rx="4" fill="#0f172a" />
+              <rect x="70" y="14" width="16" height="16" rx="2" fill="#ffffff" />
+              <rect x="74" y="18" width="8" height="8" rx="1" fill="#0f172a" />
+              
+              <rect x="10" y="66" width="24" height="24" rx="4" fill="#0f172a" />
+              <rect x="14" y="70" width="16" height="16" rx="2" fill="#ffffff" />
+              <rect x="18" y="74" width="8" height="8" rx="1" fill="#0f172a" />
+
+              <rect x="42" y="12" width="6" height="14" fill="#0f172a" />
+              <rect x="52" y="16" width="8" height="6" fill="#0f172a" />
+              <rect x="40" y="40" width="20" height="20" rx="3" fill="#4f46e5" />
+              <rect x="15" y="44" width="14" height="6" fill="#0f172a" />
+              <rect x="72" y="45" width="16" height="8" fill="#0f172a" />
+              <rect x="42" y="70" width="8" height="16" fill="#0f172a" />
+              <rect x="56" y="68" width="14" height="6" fill="#0f172a" />
+              <rect x="76" y="76" width="10" height="12" fill="#0f172a" />
+            </svg>
+          </div>
+
+          <div class="totp-anti-counterfeit">
+            <span class="totp-shield">🛡️ 企业防伪</span>
+            <span class="totp-timer">动态防伪 · 前台扫码秒核销</span>
+          </div>
+
           <el-button 
             size="small" 
             type="primary" 
             plain 
-            style="margin-top: 10px; border-radius: 20px;"
+            style="margin-top: 14px; border-radius: 20px;"
             @click="copyCode(currentOrder.verifyCode)"
           >
             <el-icon><CopyDocument /></el-icon> 复制核销码
@@ -349,12 +385,12 @@ onMounted(() => {
 }
 
 .venue-cell-title {
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .date-cell {
   font-size: 13px;
-  color: #334155;
+  color: var(--text-main);
   font-weight: 600;
 }
 
@@ -389,7 +425,7 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .pagination-bar {
@@ -402,13 +438,15 @@ onMounted(() => {
 .ticket-container {
   padding: 24px;
   text-align: center;
-  background: #ffffff;
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
 }
 
 .stub-venue-name {
   font-size: 17px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .stub-date-slot {
@@ -420,17 +458,82 @@ onMounted(() => {
 
 .stub-user-hint {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 6px;
 }
 
 .stub-number-code {
-  font-size: 42px;
+  font-size: 40px;
   font-weight: 900;
   letter-spacing: 8px;
   color: #4f46e5;
   font-family: monospace;
-  margin: 8px 0;
+  margin: 10px 0;
   text-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+/* 全息彩虹防伪带 */
+.holographic-foil-strip {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #ff007a,
+    #9600ff,
+    #00e1ff,
+    #00ff66,
+    #ffee00,
+    #ff007a
+  );
+  background-size: 300% 100%;
+  animation: holographicShift 4s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes holographicShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* 二维码与防伪标 */
+.ticket-qr-box {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 8px;
+}
+
+.qr-svg {
+  width: 100px;
+  height: 100px;
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-subtle);
+}
+
+.totp-anti-counterfeit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #059669;
+  font-weight: 600;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  padding: 3px 10px;
+  border-radius: 20px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .page-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 }
 </style>

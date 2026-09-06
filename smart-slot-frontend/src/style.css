@@ -9,10 +9,12 @@
 
   --bg-color: #f8fafc;
   --card-bg: #ffffff;
+  --card-bg-elevated: #f1f5f9;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-subtle: #e2e8f0;
   --border-hover: #cbd5e1;
+  --nav-bg: rgba(255, 255, 255, 0.85);
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -21,6 +23,59 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
   --shadow-hover: 0 16px 32px -4px rgba(79, 70, 229, 0.12), 0 6px 12px -2px rgba(15, 23, 42, 0.06);
+}
+
+/* 深色模式变量 (对标 Linear / Vercel 现代科技暗黑质感) */
+html.dark {
+  --bg-color: #0b0f19;
+  --card-bg: #111827;
+  --card-bg-elevated: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-subtle: #1e293b;
+  --border-hover: #334155;
+  --nav-bg: rgba(11, 15, 25, 0.85);
+
+  --shadow-card: 0 4px 24px -2px rgba(0, 0, 0, 0.55), 0 2px 8px -1px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 16px 32px -4px rgba(79, 70, 229, 0.28), 0 6px 14px -2px rgba(0, 0, 0, 0.5);
+
+  /* Element Plus 深色变量微调 */
+  --el-bg-color: #111827;
+  --el-bg-color-overlay: #1e293b;
+  --el-text-color-primary: #f8fafc;
+  --el-text-color-regular: #cbd5e1;
+  --el-text-color-secondary: #94a3b8;
+  --el-border-color: #1e293b;
+  --el-border-color-light: #27354a;
+  --el-fill-color-blank: #111827;
+  --el-fill-color-light: #1e293b;
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+}
+
+/* View Transitions 优雅圆形水波转场规则 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.dark::view-transition-old(root) {
+  z-index: 1;
+}
+.dark::view-transition-new(root) {
+  z-index: 9999;
+}
+::view-transition-old(root) {
+  z-index: 9999;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* 60fps 硬件加速类 */
+.gpu-accel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 * {
@@ -74,10 +129,10 @@ a {
 
 /* 玻璃态顶部导航栏 */
 .glass-nav {
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--nav-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* =========================================
@@ -111,11 +166,11 @@ a {
 
 /* 2. 拟物化票据卡 (21st.dev 齿孔打孔与阴影) */
 .ticket-container {
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: 16px;
   position: relative;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
 }
 
@@ -132,16 +187,16 @@ a {
 
 .ticket-notch-left {
   left: -10px;
-  box-shadow: inset -2px 0 3px rgba(0,0,0,0.06);
+  box-shadow: inset -2px 0 3px rgba(0,0,0,0.12);
 }
 
 .ticket-notch-right {
   right: -10px;
-  box-shadow: inset 2px 0 3px rgba(0,0,0,0.06);
+  box-shadow: inset 2px 0 3px rgba(0,0,0,0.12);
 }
 
 .ticket-perforation {
-  border-top: 2px dashed #cbd5e1;
+  border-top: 2px dashed var(--border-hover);
   margin: 16px 0;
   position: relative;
 }

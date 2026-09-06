@@ -296,12 +296,12 @@ onMounted(() => {
 .title {
   font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -309,11 +309,15 @@ onMounted(() => {
   margin-bottom: 20px;
   border-radius: 12px;
   padding: 8px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
 }
 
 .table-card {
   border-radius: 12px;
   padding: 8px 16px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
 }
 
 .price-text {
@@ -325,5 +329,13 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 }
 </style>
