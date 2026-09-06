@@ -62,9 +62,9 @@
           </el-tooltip>
 
           <template v-if="userStore.isLoggedIn">
-            <div class="balance-pill">
+            <div class="balance-pill clickable-pill" @click="$router.push('/profile')" title="点击进入个人中心与钱包充值">
               <span class="balance-label">账户余额</span>
-              <span class="balance-val">￥{{ userStore.userInfo?.balance || 0 }}</span>
+              <span class="balance-val">￥{{ (userStore.userInfo?.balance || 0).toFixed ? (userStore.userInfo?.balance || 0).toFixed(2) : (userStore.userInfo?.balance || 0) }}</span>
             </div>
 
             <el-dropdown trigger="click">
@@ -77,10 +77,13 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
+                  <el-dropdown-item @click="$router.push('/profile')">
+                    <el-icon><User /></el-icon> 个人中心 & 我的钱包
+                  </el-dropdown-item>
                   <el-dropdown-item @click="$router.push('/my-bookings')">
                     <el-icon><List /></el-icon> 我的预约历程
                   </el-dropdown-item>
-                  <el-dropdown-item v-if="userStore.isAdmin" @click="$router.push('/admin/dashboard')">
+                  <el-dropdown-item v-if="userStore.isStaff" @click="$router.push('/admin/dashboard')">
                     <el-icon><Platform /></el-icon> 运营数据控制台
                   </el-dropdown-item>
                   <el-dropdown-item divided @click="handleLogout">
@@ -177,7 +180,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon } from '@element-plus/icons-vue'
+import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon, User } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

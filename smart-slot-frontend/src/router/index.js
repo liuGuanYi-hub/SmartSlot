@@ -34,6 +34,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/profile',
+    name: 'UserProfile',
+    component: () => import('@/views/UserProfileView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: LoginView
@@ -61,6 +67,12 @@ const routes = [
         name: 'AdminOrders',
         component: AdminOrders,
         meta: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER'] }
+      },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/AdminUsers.vue'),
+        meta: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER'] }
       },
       {
         path: 'iot-gate',
