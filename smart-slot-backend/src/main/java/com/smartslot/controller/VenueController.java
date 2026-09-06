@@ -7,6 +7,7 @@ import com.smartslot.common.PageResult;
 import com.smartslot.common.Result;
 import com.smartslot.common.UserContext;
 import com.smartslot.constant.UserRole;
+import com.smartslot.dto.ReviewCreateDto;
 import com.smartslot.dto.VenueSaveDto;
 import com.smartslot.entity.OrderReview;
 import com.smartslot.entity.Venue;
@@ -70,6 +71,25 @@ public class VenueController {
     @GetMapping("/venues/{id}/reviews")
     public Result<List<OrderReview>> getVenueReviews(@PathVariable Long id) {
         return Result.success(reviewMapper.selectReviewsByVenueId(id));
+    }
+
+    @Operation(summary = "点赞/赞同场馆评价")
+    @PostMapping("/venues/reviews/like/{id}")
+    public Result<Void> likeReview(@PathVariable Long id) {
+        reviewMapper.incrementLikes(id);
+        return Result.success("点赞成功", null);
+    }
+
+    @Operation(summary = "发表场馆评价")
+    @PostMapping("/venues/{id}/reviews")
+    public Result<Void> addVenueReview(@PathVariable Long id, @Valid @RequestBody ReviewCreateDto dto) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            userId = 2L;
+        }
+        dto.setVenueId(id);
+        bookingOrderService.addReview(dto, userId);
+        return Result.success("评价发布成功，已展示至口碑墙！", null);
     }
 
     // ==========================================

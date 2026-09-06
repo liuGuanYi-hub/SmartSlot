@@ -9,13 +9,24 @@ import lombok.Data;
 @Data
 public class ReviewCreateDto {
 
-    @NotNull(message = "订单ID不能为空")
-    private Long orderId;
+    private Long orderId; // 订单ID (可选)
 
-    @NotNull(message = "请给出评分")
+    private Long venueId; // 场地ID
+
+    @NotNull(message = "请给出综合评分")
     @Min(value = 1, message = "评分最低为 1 星")
     @Max(value = 5, message = "评分最高为 5 星")
     private Integer rating;
+
+    private Integer envRating; // 环境评分 1-5
+
+    private Integer facilityRating; // 设施评分 1-5
+
+    private Integer serviceRating; // 服务评分 1-5
+
+    private String tags; // 评价标签(逗号分隔)
+
+    private String images; // 实拍晒图URL(逗号分隔)
 
     @NotBlank(message = "评价内容不能为空")
     private String content;

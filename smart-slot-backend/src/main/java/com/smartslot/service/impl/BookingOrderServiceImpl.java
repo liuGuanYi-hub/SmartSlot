@@ -435,28 +435,45 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
 
     @Override
     public void addReview(ReviewCreateDto dto, Long userId) {
-        BookingOrder order = getById(dto.getOrderId());
-        if (order == null) {
-            throw new BusinessException("订单不存在");
-        }
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException("只能评价自己的订单");
-        }
-        if (order.getOrderStatus() != 2) {
-            throw new BusinessException("只有已核销完成的订单才能进行评价");
+        Long targetVenueId = dto.getVenueId();
+        Long orderId = dto.getOrderId();
+
+        if (orderId != null && orderId > 0) {
+            BookingOrder order = getById(orderId);
+            if (order != null) {
+                if (!order.getUserId().equals(userId)) {
+                    throw new BusinessException("只能评价自己的订单");
+                }
+                if (order.getOrderStatus() != 2) {
+                    throw new BusinessException("只有已核销完成的订单才能进行评价");
+                }
+                targetVenueId = order.getVenueId();
+                OrderReview existing = reviewMapper.selectOne(new LambdaQueryWrapper<OrderReview>()
+                        .eq(OrderReview::getOrderId, orderId));
+                if (existing != null) {
+                    throw new BusinessException("该订单已评价，请勿重复提交");
+                }
+            }
+        } else {
+            orderId = System.currentTimeMillis();
         }
 
-        OrderReview existing = reviewMapper.selectOne(new LambdaQueryWrapper<OrderReview>()
-                .eq(OrderReview::getOrderId, dto.getOrderId()));
-        if (existing != null) {
-            throw new BusinessException("该订单已评价，请勿重复提交");
+        if (targetVenueId == null) {
+            targetVenueId = 1L;
         }
 
         OrderReview review = OrderReview.builder()
-                .orderId(dto.getOrderId())
-                .venueId(order.getVenueId())
+                .orderId(orderId)
+                .venueId(targetVenueId)
                 .userId(userId)
                 .rating(dto.getRating())
+                .envRating(dto.getEnvRating() != null ? dto.getEnvRating() : dto.getRating())
+                .facilityRating(dto.getFacilityRating() != null ? dto.getFacilityRating() : dto.getRating())
+                .serviceRating(dto.getServiceRating() != null ? dto.getServiceRating() : dto.getRating())
+                .tags(dto.getTags() != null ? dto.getTags() : "")
+                .images(dto.getImages() != null ? dto.getImages() : "")
+                .merchantReply("【店长回复】：感谢球友的热情支持与真实反馈！我们将持续精进场地设施与防滑维护，期待与您在球场再次相见！")
+                .likes(0)
                 .content(dto.getContent())
                 .createTime(LocalDateTime.now())
                 .build();

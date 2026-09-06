@@ -38,6 +38,21 @@ export function getVenueReviews(id) {
   })
 }
 
+export function likeReview(reviewId) {
+  return request({
+    url: `/venues/reviews/like/${reviewId}`,
+    method: 'post'
+  })
+}
+
+export function addVenueReview(venueId, data) {
+  return request({
+    url: `/venues/${venueId}/reviews`,
+    method: 'post',
+    data
+  })
+}
+
 // 管理端 API
 export function getAdminVenuesPage(params) {
   return request({
