@@ -22,6 +22,11 @@ public class UserContext {
         return info != null ? info.getUserId() : null;
     }
 
+    public static String getUsername() {
+        CurrentUserInfo info = get();
+        return info != null ? info.getUsername() : null;
+    }
+
     public static String getRole() {
         CurrentUserInfo info = get();
         return info != null ? info.getRole() : null;

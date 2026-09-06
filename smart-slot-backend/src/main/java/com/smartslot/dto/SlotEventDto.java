@@ -34,5 +34,6 @@ public class SlotEventDto {
     private Long userId;
     private Integer onlineCount;
     private String message;
+    private String extra; // 扩展报文(如 IoT 闸机指令或网关通知)
     private Long timestamp;
 }

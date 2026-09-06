@@ -24,6 +24,10 @@
           <el-icon><List /></el-icon>
           <span>订单检索与核销</span>
         </el-menu-item>
+        <el-menu-item index="/admin/iot-gate" v-permission="['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER']">
+          <el-icon><Cpu /></el-icon>
+          <span>智能道闸中控</span>
+        </el-menu-item>
         <el-menu-item index="/admin/logs" v-permission="['ROLE_ADMIN']">
           <el-icon><Document /></el-icon>
           <span>操作审计日志</span>
@@ -58,7 +62,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Platform, DataLine, Menu, List, Ticket, Document } from '@element-plus/icons-vue'
+import { Platform, DataLine, Menu, List, Ticket, Document, Cpu } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import VerifyModal from '@/components/VerifyModal.vue'
 

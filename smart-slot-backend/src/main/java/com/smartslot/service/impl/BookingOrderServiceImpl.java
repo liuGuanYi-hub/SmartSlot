@@ -10,6 +10,7 @@ import com.smartslot.dto.SlotEventDto;
 import com.smartslot.entity.*;
 import com.smartslot.mapper.*;
 import com.smartslot.service.BookingOrderService;
+import com.smartslot.service.IotGateService;
 import com.smartslot.service.OrderDelayQueueService;
 import com.smartslot.service.WebSocketPushService;
 import com.smartslot.util.LuaLockManager;
@@ -44,6 +45,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
     private final LuaLockManager luaLockManager;
     private final OrderDelayQueueService orderDelayQueueService;
     private final WebSocketPushService webSocketPushService;
+    private final IotGateService iotGateService;
 
     private static final List<String> STANDARD_SLOTS = List.of(
             "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
@@ -387,6 +389,13 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         Venue venue = venueMapper.selectById(order.getVenueId());
         if (venue != null) {
             order.setVenueName(venue.getName());
+        }
+
+        // 联动智能物联网门禁与道闸：下发开闸放行 MQTT 指令
+        try {
+            iotGateService.sendGateOpenCommand(order);
+        } catch (Exception e) {
+            log.warn("[IoT道闸] 开闸指令下发异常: {}", e.getMessage());
         }
 
         log.info("核销成功: orderNo={}, verifyCode={}", order.getOrderNo(), verifyCode);

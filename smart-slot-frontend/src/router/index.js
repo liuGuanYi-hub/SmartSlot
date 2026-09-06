@@ -58,6 +58,12 @@ const routes = [
         meta: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER'] }
       },
       {
+        path: 'iot-gate',
+        name: 'AdminIotGate',
+        component: () => import('@/views/admin/IotGateConsole.vue'),
+        meta: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VERIFIER'] }
+      },
+      {
         path: 'logs',
         name: 'AdminLogs',
         component: AdminLogs,

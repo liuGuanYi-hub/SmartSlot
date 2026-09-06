@@ -27,6 +27,7 @@ public class DatabaseInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         initOperationLogTable();
+        initIotGateLogTable();
         initRolesAndUsers();
     }
 
@@ -56,6 +57,35 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("数据库初始化: sys_operation_log 审计日志表检查就绪");
         } catch (Exception e) {
             log.warn("检查或创建 sys_operation_log 遇到异常 (如使用内存库可忽略): {}", e.getMessage());
+        }
+    }
+
+    private void initIotGateLogTable() {
+        try {
+            String sql = """
+                CREATE TABLE IF NOT EXISTS `iot_gate_log` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `gate_id` VARCHAR(64) NOT NULL COMMENT '闸机硬件ID',
+                  `venue_id` BIGINT DEFAULT NULL COMMENT '场馆ID',
+                  `venue_name` VARCHAR(64) DEFAULT NULL COMMENT '场馆名称',
+                  `order_no` VARCHAR(64) DEFAULT NULL COMMENT '预约单号',
+                  `verify_code` VARCHAR(16) DEFAULT NULL COMMENT '核销码',
+                  `action` VARCHAR(32) NOT NULL COMMENT '操作指令',
+                  `protocol` VARCHAR(32) NOT NULL DEFAULT 'MQTT_QOS1' COMMENT '通信协议',
+                  `topic` VARCHAR(128) DEFAULT NULL COMMENT 'MQTT主题',
+                  `payload_json` TEXT COMMENT '报文JSON',
+                  `status` VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '执行结果',
+                  `duration_ms` BIGINT NOT NULL DEFAULT 0 COMMENT '响应耗时',
+                  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下发时间',
+                  PRIMARY KEY (`id`),
+                  KEY `idx_gate_id` (`gate_id`),
+                  KEY `idx_create_time` (`create_time`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='物联网门禁道闸指令流水表';
+            """;
+            jdbcTemplate.execute(sql);
+            log.info("数据库初始化: iot_gate_log 智能道闸日志表检查就绪");
+        } catch (Exception e) {
+            log.warn("检查或创建 iot_gate_log 遇到异常: {}", e.getMessage());
         }
     }
 
