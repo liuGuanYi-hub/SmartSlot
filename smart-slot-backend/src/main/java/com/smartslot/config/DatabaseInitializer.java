@@ -161,6 +161,23 @@ public class DatabaseInitializer implements CommandLineRunner {
                         .build());
                 log.info("初始化 RBAC 角色账户: verifier / 123456 (ROLE_VERIFIER)");
             }
+
+            // 3. 先锋运动会员 user1
+            SysUser user1 = sysUserService.getOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, "user1"));
+            if (user1 == null) {
+                sysUserService.save(SysUser.builder()
+                        .username("user1")
+                        .password(defaultPwd)
+                        .nickname("先锋运动会员")
+                        .phone("13800003333")
+                        .role(UserRole.ROLE_USER)
+                        .balance(new BigDecimal("1000.00"))
+                        .status(1)
+                        .createTime(LocalDateTime.now())
+                        .updateTime(LocalDateTime.now())
+                        .build());
+                log.info("初始化体验用户: user1 / 123456 (ROLE_USER)");
+            }
         } catch (Exception e) {
             log.warn("初始化 RBAC 默认用户异常 (若库不可写可忽略): {}", e.getMessage());
         }

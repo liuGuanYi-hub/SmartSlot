@@ -13,9 +13,10 @@
       <div v-if="!isRegister" class="quick-fill-row">
         <span class="quick-label">快速体验：</span>
         <el-button size="small" @click="quickFill('user', '123456')">会员 (user)</el-button>
-        <el-button size="small" type="primary" plain @click="quickFill('admin', '123456')">超管 (admin)</el-button>
+        <el-button size="small" type="primary" plain @click="quickFill('user1', '123456')">会员 (user1)</el-button>
+        <el-button size="small" type="success" plain @click="quickFill('admin', '123456')">超管 (admin)</el-button>
         <el-button size="small" type="warning" plain @click="quickFill('manager', '123456')">店长 (manager)</el-button>
-        <el-button size="small" type="success" plain @click="quickFill('verifier', '123456')">核销员 (verifier)</el-button>
+        <el-button size="small" type="info" plain @click="quickFill('verifier', '123456')">核销员 (verifier)</el-button>
       </div>
 
       <!-- 表单 (登录模式) -->

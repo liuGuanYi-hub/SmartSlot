@@ -79,13 +79,16 @@
           <div 
             v-for="v in matrixData.venues" 
             :key="v.venueId" 
+            :id="'venue-header-' + v.venueId"
             class="board-cell venue-col-header"
+            :class="{ 'venue-col-focused': focusedVenueId === v.venueId }"
           >
             <div class="v-name" :title="v.venueName">{{ v.venueName }}</div>
             <div class="v-tags">
               <span class="v-category-badge">{{ v.categoryName }}</span>
               <span class="v-price-badge">￥{{ v.pricePerHour }}/h</span>
             </div>
+            <span v-if="focusedVenueId === v.venueId" class="focus-pulse-tag">已聚焦</span>
           </div>
         </div>
 
@@ -107,7 +110,7 @@
             v-for="venue in matrixData.venues" 
             :key="venue.venueId + '_' + slotTime"
             class="board-cell slot-cell glow-on-hover"
-            :class="[getSlotClass(venue.slots[sIdx]), { 'slot-live-flash': flashingSlotKey === (venue.venueId + '_' + slotTime) }]"
+            :class="[getSlotClass(venue.slots[sIdx]), { 'slot-live-flash': flashingSlotKey === (venue.venueId + '_' + slotTime), 'venue-col-focused-cell': focusedVenueId === venue.venueId }]"
             @click="handleSlotClick(venue, venue.slots[sIdx], slotTime)"
           >
             <div class="slot-inner">
@@ -158,7 +161,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ArrowLeft, ArrowRight, Clock, Check, Lock, Right } from '@element-plus/icons-vue'
 import { getSlotMatrix, getCategories } from '@/api/venue'
 import dayjs from 'dayjs'
@@ -171,6 +174,9 @@ const selectedCategoryId = ref(null)
 const categories = ref([])
 const matrixData = ref(null)
 const loading = ref(false)
+
+const focusedVenueId = ref(null)
+let focusTimeout = null
 
 // WebSocket 全网实时协同状态
 const wsConnected = ref(false)
@@ -415,8 +421,49 @@ onUnmounted(() => {
   }
 })
 
+async function focusVenue(venueId) {
+  // 1. 若当前分类过滤阻挡了该场地，先自动恢复全部分类
+  const venueExists = matrixData.value?.venues?.some(v => v.venueId === venueId)
+  if (!venueExists && selectedCategoryId.value !== null) {
+    selectedCategoryId.value = null
+    await fetchMatrixData()
+  }
+
+  focusedVenueId.value = venueId
+
+  // 2. 平滑轻微纵向滚动页面，保证日历看板进入舒适的可视区域
+  const matrixContainer = document.querySelector('.slot-matrix-container')
+  if (matrixContainer) {
+    const rect = matrixContainer.getBoundingClientRect()
+    if (rect.top < 60 || rect.top > window.innerHeight * 0.45) {
+      matrixContainer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // 3. 计算并平滑横向滚动，将聚焦的场地列滚动至容器中央
+  await nextTick()
+  const headerEl = document.getElementById('venue-header-' + venueId)
+  const scrollWrap = document.querySelector('.matrix-grid-scroll-wrap')
+  if (headerEl && scrollWrap) {
+    const wrapRect = scrollWrap.getBoundingClientRect()
+    const elRect = headerEl.getBoundingClientRect()
+    const targetScrollLeft = (elRect.left - wrapRect.left) + scrollWrap.scrollLeft - (wrapRect.width / 2) + (elRect.width / 2)
+    scrollWrap.scrollTo({
+      left: Math.max(0, targetScrollLeft),
+      behavior: 'smooth'
+    })
+  }
+
+  if (focusTimeout) clearTimeout(focusTimeout)
+  focusTimeout = setTimeout(() => {
+    // 保持高亮展示
+  }, 4000)
+}
+
 defineExpose({
-  fetchMatrixData
+  fetchMatrixData,
+  focusVenue,
+  focusedVenueId
 })
 </script>
 
@@ -836,5 +883,56 @@ defineExpose({
   .mobile-swipe-tip {
     display: flex;
   }
+}
+
+/* 场地列聚焦高亮动效 */
+.venue-col-header.venue-col-focused {
+  background: rgba(79, 70, 229, 0.12) !important;
+  border-bottom: 2px solid #4f46e5 !important;
+  box-shadow: inset 0 0 0 1.5px #4f46e5;
+  position: relative;
+}
+
+.focus-pulse-tag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  background: #4f46e5;
+  color: #ffffff;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  animation: focusTagPulse 1.8s infinite;
+}
+
+@keyframes focusTagPulse {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 10px rgba(79, 70, 229, 0.6); }
+  100% { transform: scale(0.95); opacity: 0.9; }
+}
+
+.board-cell.venue-col-focused-cell {
+  background: rgba(79, 70, 229, 0.05);
+  border-left: 1.5px dashed rgba(79, 70, 229, 0.4) !important;
+  border-right: 1.5px dashed rgba(79, 70, 229, 0.4) !important;
+  animation: venueColPulse 2.5s ease-in-out;
+}
+
+@keyframes venueColPulse {
+  0% { background: rgba(79, 70, 229, 0.22); }
+  50% { background: rgba(79, 70, 229, 0.1); }
+  100% { background: rgba(79, 70, 229, 0.05); }
+}
+
+:global(html.dark) .venue-col-header.venue-col-focused {
+  background: rgba(99, 102, 241, 0.2) !important;
+  border-bottom: 2px solid #818cf8 !important;
+  box-shadow: inset 0 0 0 1.5px #818cf8;
+}
+
+:global(html.dark) .board-cell.venue-col-focused-cell {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 1.5px dashed rgba(129, 140, 248, 0.5) !important;
+  border-right: 1.5px dashed rgba(129, 140, 248, 0.5) !important;
 }
 </style>

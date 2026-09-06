@@ -80,7 +80,7 @@
         <!-- 1. 羽毛球 1 号场 (专业地胶) id:1 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 1 }"
+          :class="{ active: hoveredVenueId === 1, selected: selectedVenueId === 1 }"
           @mouseenter="hoveredVenueId = 1"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(1)"
@@ -97,7 +97,7 @@
         <!-- 2. 羽毛球 2 号场 (双打标准) id:2 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 2 }"
+          :class="{ active: hoveredVenueId === 2, selected: selectedVenueId === 2 }"
           @mouseenter="hoveredVenueId = 2"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(2)"
@@ -113,7 +113,7 @@
         <!-- 3. 羽毛球 3 号场 (训练场) id:3 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 3 }"
+          :class="{ active: hoveredVenueId === 3, selected: selectedVenueId === 3 }"
           @mouseenter="hoveredVenueId = 3"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(3)"
@@ -129,7 +129,7 @@
         <!-- 4. 网球 1 号场 (硬地) id:4 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 4 }"
+          :class="{ active: hoveredVenueId === 4, selected: selectedVenueId === 4 }"
           @mouseenter="hoveredVenueId = 4"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(4)"
@@ -146,7 +146,7 @@
         <!-- 5. 篮球全场/半场 A (木地板) id:5 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 5 }"
+          :class="{ active: hoveredVenueId === 5, selected: selectedVenueId === 5 }"
           @mouseenter="hoveredVenueId = 5"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(5)"
@@ -164,7 +164,7 @@
         <!-- 6. 智能多功能会议室 (20人) id:6 -->
         <g 
           class="court-group" 
-          :class="{ active: hoveredVenueId === 6 }"
+          :class="{ active: hoveredVenueId === 6, selected: selectedVenueId === 6 }"
           @mouseenter="hoveredVenueId = 6"
           @mouseleave="hoveredVenueId = null"
           @click="selectVenue(6)"
@@ -191,6 +191,13 @@
 
 <script setup>
 import { ref } from 'vue'
+
+const props = defineProps({
+  selectedVenueId: {
+    type: Number,
+    default: null
+  }
+})
 
 const emit = defineEmits(['select-venue'])
 const hoveredVenueId = ref(null)
@@ -285,6 +292,18 @@ function selectVenue(id) {
 
 .court-group.active rect:first-child {
   stroke-width: 3px;
+}
+
+.court-group.selected rect:first-child {
+  stroke-width: 3.5px !important;
+  stroke: #4f46e5 !important;
+  filter: drop-shadow(0 0 14px rgba(79, 70, 229, 0.75)) !important;
+  transform: translateY(-3px) scale(1.01);
+}
+
+:global(html.dark) .court-group.selected rect:first-child {
+  stroke: #818cf8 !important;
+  filter: drop-shadow(0 0 16px rgba(129, 140, 248, 0.85)) !important;
 }
 
 :global(html.dark) .svg-floor-bg {

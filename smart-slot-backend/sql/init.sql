@@ -146,7 +146,8 @@ INSERT INTO `sys_user` (`id`, `username`, `password`, `nickname`, `phone`, `role
 (1, 'admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '系统超级管理员', '13800000000', 'ROLE_ADMIN', 9999.00, 1),
 (2, 'user', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '羽球小旋风', '13912345678', 'ROLE_USER', 600.00, 1),
 (3, 'manager', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '中心场馆店长', '13812345678', 'ROLE_MANAGER', 5000.00, 1),
-(4, 'verifier', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '前台核销专员', '13898765432', 'ROLE_VERIFIER', 1000.00, 1);
+(4, 'verifier', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '前台核销专员', '13898765432', 'ROLE_VERIFIER', 1000.00, 1),
+(5, 'user1', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '先锋运动会员', '13800003333', 'ROLE_USER', 1000.00, 1);
 
 -- 初始场地分类
 INSERT INTO `venue_category` (`id`, `name`, `icon`, `sort`, `status`) VALUES

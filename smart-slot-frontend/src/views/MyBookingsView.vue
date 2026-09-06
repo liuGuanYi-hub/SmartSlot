@@ -206,6 +206,87 @@
       </template>
     </el-dialog>
 
+    <!-- 优雅的取消预约申请模态框 (支持下拉快捷原因 + 标签速选 + 自定义备注) -->
+    <el-dialog 
+      v-model="cancelDialogVisible" 
+      title="取消预约申请" 
+      width="480px" 
+      destroy-on-close 
+      align-center
+    >
+      <div v-if="currentCancelOrder" class="cancel-modal-content">
+        <el-alert
+          title="温馨提示：取消预约后时段将即刻释放，费用将原路全额退回至您的账户余额。"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px;"
+        />
+
+        <div class="order-mini-summary">
+          <div class="summary-item">
+            <span class="label">预约场馆：</span>
+            <span class="value font-medium">{{ currentCancelOrder.venueName }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">时段排期：</span>
+            <span class="value">{{ currentCancelOrder.bookDate }} · {{ currentCancelOrder.timeSlot }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">退款金额：</span>
+            <span class="value price">￥{{ currentCancelOrder.payAmount }}</span>
+          </div>
+        </div>
+
+        <el-form label-position="top" style="margin-top: 16px;">
+          <el-form-item label="请选择取消原因 (必选)">
+            <el-select v-model="cancelForm.selectedReason" placeholder="请选择取消原因" style="width: 100%;">
+              <el-option
+                v-for="item in cancelReasonOptions"
+                :key="item"
+                :label="item"
+                :value="item"
+              />
+            </el-select>
+          </el-form-item>
+
+          <!-- 快速标签点选 -->
+          <div class="quick-reasons-wrap">
+            <span class="quick-caption">快速选择：</span>
+            <div class="quick-tags-box">
+              <el-tag
+                v-for="item in cancelReasonOptions"
+                :key="item"
+                :effect="cancelForm.selectedReason === item ? 'dark' : 'plain'"
+                class="clickable-reason-tag"
+                @click="cancelForm.selectedReason = item"
+              >
+                {{ item }}
+              </el-tag>
+            </div>
+          </div>
+
+          <el-form-item label="补充说明 (选填)" style="margin-top: 14px;">
+            <el-input
+              v-model="cancelForm.customReason"
+              type="textarea"
+              rows="3"
+              placeholder="如有更多具体情况或改期意向，可在此补充留言..."
+              maxlength="200"
+              show-word-limit
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <el-button @click="cancelDialogVisible = false">再想想</el-button>
+        <el-button type="danger" :loading="canceling" @click="confirmCancelOrder">
+          确认取消预约
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 收银台模态框 -->
     <CashierModal ref="cashierModalRef" @pay-success="onCashierSuccess" />
   </div>
@@ -302,18 +383,45 @@ function onCashierSuccess() {
   fetchOrders()
 }
 
-async function handleCancel(order) {
+const cancelDialogVisible = ref(false)
+const canceling = ref(false)
+const currentCancelOrder = ref(null)
+const cancelReasonOptions = [
+  '临时有事 / 行程冲突',
+  '身体不适 / 运动损伤',
+  '天气恶劣 / 交通阻滞',
+  '计划有变 / 与同伴改期',
+  '场地选错 / 重新预约',
+  '其他原因 (手动填写)'
+]
+const cancelForm = reactive({
+  selectedReason: '临时有事 / 行程冲突',
+  customReason: ''
+})
+
+function handleCancel(order) {
+  currentCancelOrder.value = order
+  cancelForm.selectedReason = '临时有事 / 行程冲突'
+  cancelForm.customReason = ''
+  cancelDialogVisible.value = true
+}
+
+async function confirmCancelOrder() {
+  if (!currentCancelOrder.value) return
+  canceling.value = true
   try {
-    const { value: reason } = await ElMessageBox.prompt('请输入取消原因：', '取消预约', {
-      confirmButtonText: '确认取消',
-      cancelButtonText: '放弃',
-      inputPlaceholder: '临时有事 / 计划变更'
-    })
-    await cancelOrder(order.id, reason || '用户自主取消')
-    ElMessage.success('订单已成功取消，费用已原路退回')
+    let finalReason = cancelForm.selectedReason
+    if (cancelForm.customReason.trim()) {
+      finalReason += `（${cancelForm.customReason.trim()}）`
+    }
+    await cancelOrder(currentCancelOrder.value.id, finalReason)
+    ElMessage.success('订单已成功取消，费用已原路退回至账户余额')
+    cancelDialogVisible.value = false
     fetchOrders()
   } catch (e) {
-    // canceled
+    console.error(e)
+  } finally {
+    canceling.value = false
   }
 }
 
@@ -534,5 +642,70 @@ onMounted(() => {
     align-items: flex-start;
     gap: 12px;
   }
+}
+
+/* 取消预约模态框样式 */
+.cancel-modal-content {
+  padding: 4px 0;
+}
+
+.order-mini-summary {
+  background: var(--card-bg-elevated);
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-item .label {
+  color: var(--text-secondary);
+}
+
+.summary-item .value {
+  color: var(--text-main);
+}
+
+.summary-item .price {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.quick-reasons-wrap {
+  margin-top: -6px;
+  margin-bottom: 8px;
+}
+
+.quick-caption {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.quick-tags-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.clickable-reason-tag {
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clickable-reason-tag:hover {
+  transform: translateY(-1px);
 }
 </style>

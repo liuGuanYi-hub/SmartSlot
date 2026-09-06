@@ -19,6 +19,7 @@
     <transition name="fade-slide">
       <VenueFloorPlan 
         v-if="showFloorPlan" 
+        :selected-venue-id="activeVenueId"
         @select-venue="handleSelectVenue"
       />
     </transition>
@@ -52,13 +53,16 @@ const router = useRouter()
 const matrixRef = ref(null)
 const drawerRef = ref(null)
 const showFloorPlan = ref(true)
+const activeVenueId = ref(null)
 
 function handleSelectSlot(slotInfo) {
   drawerRef.value?.open(slotInfo)
 }
 
 function handleSelectVenue(venueId) {
-  ElMessage.success(`已在下方时段矩阵中聚焦选中【场地 #${venueId}】`)
+  activeVenueId.value = venueId
+  matrixRef.value?.focusVenue(venueId)
+  ElMessage.success(`已联动定位至下方时段矩阵【场地 #${venueId}】`)
 }
 
 function handleViewMyOrder(slotInfo) {
