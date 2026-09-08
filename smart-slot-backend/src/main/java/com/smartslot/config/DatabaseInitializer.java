@@ -41,6 +41,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         initBookingOrderCouponColumns();
         initSeedCoupons();
         initSeedMatches();
+        initMatchChatTable();
+        initSeedMatchChatMessages();
     }
 
     private void initOperationLogTable() {
@@ -853,6 +855,53 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("数据库初始化: 成功导入 4 场特色拼场招募活动与搭子体验数据");
         } catch (Exception e) {
             log.warn("导入初始拼场活动异常: {}", e.getMessage());
+        }
+    }
+
+    private void initMatchChatTable() {
+        try {
+            String sql = """
+                CREATE TABLE IF NOT EXISTS `match_chat_message` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+                  `activity_id` BIGINT NOT NULL COMMENT '拼场活动ID',
+                  `user_id` BIGINT NOT NULL COMMENT '发送人用户ID',
+                  `username` VARCHAR(64) NOT NULL COMMENT '发送人用户名',
+                  `nickname` VARCHAR(64) NOT NULL COMMENT '发送人昵称',
+                  `avatar` VARCHAR(255) DEFAULT '' COMMENT '发送人头像',
+                  `is_creator` TINYINT NOT NULL DEFAULT 0 COMMENT '是否发起人: 1-是, 0-否',
+                  `content` TEXT NOT NULL COMMENT '消息文本正文',
+                  `msg_type` VARCHAR(32) NOT NULL DEFAULT 'TEXT' COMMENT '消息类型: TEXT, SYSTEM, TACTIC',
+                  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+                  PRIMARY KEY (`id`),
+                  KEY `idx_activity_time` (`activity_id`, `create_time`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='拼场搭子微室聊天消息表';
+            """;
+            jdbcTemplate.execute(sql);
+            log.info("数据库初始化: match_chat_message 搭子微室聊天表检查就绪");
+        } catch (Exception e) {
+            log.warn("检查或创建 match_chat_message 遇到异常: {}", e.getMessage());
+        }
+    }
+
+    private void initSeedMatchChatMessages() {
+        try {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM `match_chat_message`", Integer.class);
+            if (count != null && count > 0) return;
+
+            String insertSql = """
+                INSERT INTO `match_chat_message` (`id`, `activity_id`, `user_id`, `username`, `nickname`, `avatar`, `is_creator`, `content`, `msg_type`, `create_time`) VALUES
+                (1, 1, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 1, '各位球友大家好！今晚我带李宁特耐球，水平4.0左右，记得提前5分钟热身哦~', 'TEXT', DATE_SUB(NOW(), INTERVAL 20 MINUTE)),
+                (2, 1, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 0, '收到！已就绪，球拍刚换好高弹线，准备大汗一场！', 'TEXT', DATE_SUB(NOW(), INTERVAL 15 MINUTE)),
+                (3, 1, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 1, '🏸【战术同步】双打轮转：前后站位，后场重杀前场封网！', 'TACTIC', DATE_SUB(NOW(), INTERVAL 10 MINUTE)),
+                (4, 4, 0, 'system', '系统广播', '', 0, '🎉 恭喜！当前匹克球活动已满员锁定成团，各成员专属核销码已生效！', 'SYSTEM', DATE_SUB(NOW(), INTERVAL 30 MINUTE)),
+                (5, 4, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 1, '团齐了太棒了！已和前台确认，新手球拍和球在1号场服务台免费领！', 'TEXT', DATE_SUB(NOW(), INTERVAL 25 MINUTE)),
+                (6, 4, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 0, '太省心了！我带了能量饮料，球友们待会前台集合！', 'TEXT', DATE_SUB(NOW(), INTERVAL 20 MINUTE)),
+                (7, 4, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 1, '📍【集合同步】已到前台，大家到场后微室随时呼叫~', 'TACTIC', DATE_SUB(NOW(), INTERVAL 5 MINUTE));
+            """;
+            jdbcTemplate.execute(insertSql);
+            log.info("数据库初始化: 成功导入拼场搭子微室聊天演示消息");
+        } catch (Exception e) {
+            log.warn("导入初始拼场聊天消息异常: {}", e.getMessage());
         }
     }
 }

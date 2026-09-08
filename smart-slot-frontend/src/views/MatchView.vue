@@ -187,6 +187,17 @@
               </div>
 
               <div class="action-box">
+                <!-- 搭子实时微聊入口 -->
+                <el-button 
+                  size="small" 
+                  round
+                  class="chat-trigger-btn"
+                  @click.stop="openChat(m)"
+                  title="进入搭子群聊微室交流带球与战术"
+                >
+                  <el-icon><ChatDotRound /></el-icon> 实时微聊
+                </el-button>
+
                 <!-- 场景 1: 已满员且我已在车上 -> 查看核销码 -->
                 <el-button 
                   v-if="m.isJoined && m.status === 1" 
@@ -294,6 +305,14 @@
         <template #footer>
           <div class="dialog-footer-actions">
             <el-button @click="detailVisible = false">关闭</el-button>
+            <el-button 
+              type="primary" 
+              plain 
+              round
+              @click="openChat(currentDetail)"
+            >
+              <el-icon><ChatDotRound /></el-icon> 进入搭子微室
+            </el-button>
             <el-button 
               v-if="canCancel(currentDetail)" 
               type="danger" 
@@ -467,13 +486,17 @@
           </el-button>
         </div>
       </el-dialog>
+
+      <!-- 6. 拼场搭子实时聊天微室抽屉 -->
+      <MatchChatDrawer ref="chatDrawerRef" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Plus, User, Search, Location, Calendar, Ticket } from '@element-plus/icons-vue'
+import { Plus, User, Search, Location, Calendar, Ticket, ChatDotRound } from '@element-plus/icons-vue'
+import MatchChatDrawer from '@/components/MatchChatDrawer.vue'
 import { getMatchPage, getMatchDetail, joinMatch, cancelMatch, createMatch } from '@/api/match'
 import { getVenues } from '@/api/venue'
 import { useUserStore } from '@/stores/user'
@@ -504,6 +527,13 @@ const standardSlots = [
 // 详情抽屉
 const detailVisible = ref(false)
 const currentDetail = ref(null)
+
+// 搭子微聊抽屉
+const chatDrawerRef = ref(null)
+const openChat = (match) => {
+  if (!match) return
+  chatDrawerRef.value?.openDrawer(match)
+}
 
 // 凭证弹窗
 const passModalVisible = ref(false)
@@ -1106,6 +1136,27 @@ onMounted(() => {
 .total-hint {
   font-size: 11px;
   color: var(--text-secondary);
+}
+
+.action-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-trigger-btn {
+  border-color: #e2e8f0;
+  color: #475569;
+  background: #f8fafc;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.chat-trigger-btn:hover {
+  border-color: #818cf8;
+  color: #4f46e5;
+  background: #eef2ff;
+  transform: translateY(-1px);
 }
 
 .join-now-btn {

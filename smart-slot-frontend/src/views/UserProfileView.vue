@@ -452,8 +452,11 @@
                     <el-button size="small" text type="primary" @click="copyVerifyCode(m.myVerifyCode)">复制</el-button>
                   </div>
 
-                  <div class="mm-actions" v-if="m.creatorId === profile.id && m.status === 0">
-                    <el-button size="small" type="danger" plain @click="handleCancelMyMatch(m.id)">
+                  <div class="mm-actions">
+                    <el-button size="small" type="primary" plain round @click="openChat(m)">
+                      <el-icon><ChatDotRound /></el-icon> 实时微聊
+                    </el-button>
+                    <el-button v-if="m.creatorId === profile.id && m.status === 0" size="small" type="danger" plain @click="handleCancelMyMatch(m.id)">
                       解散拼场并退款
                     </el-button>
                   </div>
@@ -463,6 +466,9 @@
           </el-tab-pane>
         </el-tabs>
       </div>
+
+      <!-- 拼场搭子实时聊天微室抽屉 -->
+      <MatchChatDrawer ref="chatDrawerRef" />
     </div>
   </div>
 </template>
@@ -474,7 +480,8 @@ import { getUserProfile, updateUserProfile, updateUserPassword, rechargeWallet, 
 import { getMyCoupons } from '@/api/coupon'
 import { getMyMatches, cancelMatch } from '@/api/match'
 import { useUserStore } from '@/stores/user'
-import { Check, Close, Ticket, Connection } from '@element-plus/icons-vue'
+import { Check, Close, Ticket, Connection, ChatDotRound } from '@element-plus/icons-vue'
+import MatchChatDrawer from '@/components/MatchChatDrawer.vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 
@@ -681,6 +688,13 @@ async function handleUpdatePassword() {
 const myCouponStatus = ref(null)
 const myCouponsList = ref([])
 const myMatchesList = ref([])
+
+// 搭子微聊抽屉
+const chatDrawerRef = ref(null)
+function openChat(match) {
+  if (!match) return
+  chatDrawerRef.value?.openDrawer(match)
+}
 
 function getCouponTypeLabel(type) {
   switch (type) {
