@@ -31,6 +31,14 @@
             <span>日历时段矩阵</span>
             <span class="hot-badge shimmer-badge">NEW</span>
           </router-link>
+          <router-link to="/match" class="nav-item match-nav-item" :class="{ active: $route.path === '/match' }">
+            <span>拼场搭子</span>
+            <span class="hot-badge flame-badge">HOT</span>
+          </router-link>
+          <router-link to="/coupons" class="nav-item coupon-nav-item" :class="{ active: $route.path === '/coupons' }">
+            <span>领券中心</span>
+            <span class="coupon-gift-tag">福利</span>
+          </router-link>
           <router-link to="/my-bookings" class="nav-item" :class="{ active: $route.path === '/my-bookings' }">
             我的预约行程
           </router-link>
@@ -85,6 +93,12 @@
                   <el-dropdown-item @click="$router.push('/profile')">
                     <el-icon><User /></el-icon> 个人中心 & 我的钱包
                   </el-dropdown-item>
+                  <el-dropdown-item @click="$router.push({ path: '/profile', query: { tab: 'coupons' } })">
+                    <el-icon><Ticket /></el-icon> 我的卡券包
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="$router.push({ path: '/profile', query: { tab: 'matches' } })">
+                    <el-icon><Connection /></el-icon> 我的拼场招募
+                  </el-dropdown-item>
                   <el-dropdown-item @click="$router.push('/my-bookings')">
                     <el-icon><List /></el-icon> 我的预约历程
                   </el-dropdown-item>
@@ -137,6 +151,12 @@
           <router-link to="/matrix" class="m-nav-item" @click="mobileDrawer = false">
             <el-icon><Calendar /></el-icon> 日历时段矩阵
           </router-link>
+          <router-link to="/match" class="m-nav-item" @click="mobileDrawer = false">
+            <el-icon><Connection /></el-icon> 拼场搭子大厅
+          </router-link>
+          <router-link to="/coupons" class="m-nav-item" @click="mobileDrawer = false">
+            <el-icon><Ticket /></el-icon> 领券中心
+          </router-link>
           <router-link to="/my-bookings" class="m-nav-item" @click="mobileDrawer = false">
             <el-icon><List /></el-icon> 我的预约行程
           </router-link>
@@ -185,7 +205,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon, User } from '@element-plus/icons-vue'
+import { Calendar, List, Platform, SwitchButton, Sunny, Moon, Menu as MenuIcon, User, Ticket, Connection } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -347,6 +367,27 @@ onMounted(() => {
   padding: 1px 5px;
   border-radius: 10px;
   font-weight: 700;
+}
+
+.flame-badge {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  box-shadow: 0 2px 8px rgba(255, 75, 43, 0.4);
+  animation: pulse-flame 2s infinite;
+}
+
+@keyframes pulse-flame {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.coupon-gift-tag {
+  font-size: 10px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
 }
 
 .admin-link {

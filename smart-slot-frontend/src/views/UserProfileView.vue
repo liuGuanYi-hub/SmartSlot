@@ -324,6 +324,143 @@
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- Tab 5: 我的卡券包 -->
+          <el-tab-pane label="我的优惠券包" name="coupons">
+            <div class="coupons-section">
+              <div class="section-intro-row">
+                <div>
+                  <h3 class="title">我的可用卡券</h3>
+                  <p class="desc">下单结算时系统自动优选抵扣，开场前退订自动原路返还。</p>
+                </div>
+                <el-button type="primary" round size="small" @click="$router.push('/coupons')">
+                  前往领券中心
+                </el-button>
+              </div>
+
+              <!-- 状态过滤 -->
+              <div class="coupon-status-tabs">
+                <el-radio-group v-model="myCouponStatus" size="small" @change="loadMyCoupons">
+                  <el-radio-button :label="null">全部卡券</el-radio-button>
+                  <el-radio-button :label="0">未使用</el-radio-button>
+                  <el-radio-button :label="1">已使用</el-radio-button>
+                  <el-radio-button :label="2">已过期</el-radio-button>
+                </el-radio-group>
+              </div>
+
+              <div v-if="myCouponsList.length === 0" class="empty-wrap">
+                <el-empty description="暂无符合条件的卡券">
+                  <el-button type="primary" round @click="$router.push('/coupons')">去领券中心领取</el-button>
+                </el-empty>
+              </div>
+
+              <div v-else class="my-coupon-grid">
+                <div 
+                  v-for="c in myCouponsList" 
+                  :key="c.id" 
+                  class="my-coupon-item card-shadow"
+                  :class="{ 'used-item': c.status === 1, 'expired-item': c.status === 2 }"
+                >
+                  <div class="mc-left">
+                    <div class="mc-val">
+                      <template v-if="c.couponType === 2">
+                        <span>{{ (c.discountRate * 10).toFixed(1) }}</span><small>折</small>
+                      </template>
+                      <template v-else>
+                        <small>￥</small><span>{{ Math.round(c.discountAmount) }}</span>
+                      </template>
+                    </div>
+                    <div class="mc-type">{{ getCouponTypeLabel(c.couponType) }}</div>
+                  </div>
+
+                  <div class="mc-right">
+                    <h4 class="mc-name">{{ c.couponName }}</h4>
+                    <div class="mc-rule">{{ c.minSpend > 0 ? `满 ￥${c.minSpend} 可用` : '无使用门槛' }}</div>
+                    <div class="mc-time">有效期至：{{ formatDateTime(c.expireTime) }}</div>
+                    <div class="mc-status-bar">
+                      <el-tag v-if="c.status === 0" type="success" size="small" effect="dark">未使用</el-tag>
+                      <el-tag v-else-if="c.status === 1" type="info" size="small">已使用</el-tag>
+                      <el-tag v-else type="danger" size="small">已过期</el-tag>
+
+                      <el-button 
+                        v-if="c.status === 0" 
+                        type="primary" 
+                        size="small" 
+                        round 
+                        @click="$router.push('/matrix')"
+                      >
+                        去订场使用
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- Tab 6: 我的拼场招募 -->
+          <el-tab-pane label="我的拼场招募" name="matches">
+            <div class="matches-section">
+              <div class="section-intro-row">
+                <div>
+                  <h3 class="title">拼场约球档案</h3>
+                  <p class="desc">包含我发起的 AA 拼场与我参与的搭子活动，满员成团即刻分发专属核销码。</p>
+                </div>
+                <el-button type="warning" round size="small" @click="$router.push('/match')">
+                  进入拼场大厅
+                </el-button>
+              </div>
+
+              <div v-if="myMatchesList.length === 0" class="empty-wrap">
+                <el-empty description="暂未发起或参与拼场活动">
+                  <el-button type="primary" round @click="$router.push('/match')">去拼场大厅找搭子</el-button>
+                </el-empty>
+              </div>
+
+              <div v-else class="my-matches-list">
+                <div 
+                  v-for="m in myMatchesList" 
+                  :key="m.id" 
+                  class="my-match-row card-shadow"
+                >
+                  <div class="mm-top">
+                    <div class="mm-badges">
+                      <el-tag size="small" type="primary">{{ m.categoryName }}</el-tag>
+                      <el-tag size="small" type="warning">{{ m.sportTag }}</el-tag>
+                      <el-tag v-if="m.creatorId === profile.id" size="small" effect="dark" type="danger">我是发起人</el-tag>
+                      <el-tag v-else size="small" effect="plain" type="success">我是搭子球友</el-tag>
+                    </div>
+                    <div class="mm-status">
+                      <el-tag v-if="m.status === 0" type="danger" effect="plain">招募中 ({{ m.currentMembers }}/{{ m.targetMembers }})</el-tag>
+                      <el-tag v-else-if="m.status === 1" type="success" effect="dark">🎉 已满员成团</el-tag>
+                      <el-tag v-else-if="m.status === 2" type="info">已核销完成</el-tag>
+                      <el-tag v-else type="info" effect="plain">已解散退款</el-tag>
+                    </div>
+                  </div>
+
+                  <h4 class="mm-title">{{ m.title }}</h4>
+                  <div class="mm-meta-line">
+                    <span>场馆：<strong>{{ m.venueName }}</strong></span>
+                    <span>日期时段：{{ m.bookDate }} {{ m.timeSlot }}</span>
+                    <span>AA支出：<strong class="text-danger">￥{{ m.costPerPerson }}</strong></span>
+                  </div>
+
+                  <!-- 核销码展示 -->
+                  <div v-if="m.myVerifyCode" class="mm-code-pill">
+                    <span class="code-label">我的专属核销码：</span>
+                    <strong class="code-val">{{ m.myVerifyCode }}</strong>
+                    <el-button size="small" text type="primary" @click="copyVerifyCode(m.myVerifyCode)">复制</el-button>
+                  </div>
+
+                  <div class="mm-actions" v-if="m.creatorId === profile.id && m.status === 0">
+                    <el-button size="small" type="danger" plain @click="handleCancelMyMatch(m.id)">
+                      解散拼场并退款
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
     </div>
@@ -332,12 +469,17 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getUserProfile, updateUserProfile, updateUserPassword, rechargeWallet, getMyWalletRecords } from '@/api/user'
+import { getMyCoupons } from '@/api/coupon'
+import { getMyMatches, cancelMatch } from '@/api/match'
 import { useUserStore } from '@/stores/user'
-import { Check, Close } from '@element-plus/icons-vue'
+import { Check, Close, Ticket, Connection } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 
+const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 
 const activeTab = ref('wallet')
@@ -535,9 +677,69 @@ async function handleUpdatePassword() {
   }
 }
 
+// 我的卡券包与拼场招募业务逻辑
+const myCouponStatus = ref(null)
+const myCouponsList = ref([])
+const myMatchesList = ref([])
+
+function getCouponTypeLabel(type) {
+  switch (type) {
+    case 1: return '满减券'
+    case 2: return '折扣券'
+    case 3: return '立减券'
+    default: return '优惠券'
+  }
+}
+
+function formatDateTime(str) {
+  if (!str) return ''
+  return str.replace('T', ' ').substring(0, 16)
+}
+
+async function loadMyCoupons() {
+  try {
+    const res = await getMyCoupons(myCouponStatus.value !== null ? myCouponStatus.value : undefined)
+    myCouponsList.value = res || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function loadMyMatches() {
+  try {
+    const res = await getMyMatches()
+    myMatchesList.value = res || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function copyVerifyCode(code) {
+  if (!code) return
+  navigator.clipboard.writeText(code).then(() => {
+    ElMessage.success(`核销码 ${code} 已成功复制到剪贴板！`)
+  })
+}
+
+async function handleCancelMyMatch(id) {
+  try {
+    await cancelMatch(id)
+    ElMessage.success('已成功解散拼场，款项已原路退回！')
+    await loadProfile()
+    await loadMyMatches()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
 onMounted(async () => {
+  if (route.query.tab) {
+    activeTab.value = route.query.tab
+  }
   await loadProfile()
   await loadRecords()
+  await loadMyCoupons()
+  await loadMyMatches()
   await userStore.fetchCurrentUser()
 })
 </script>
@@ -1015,5 +1217,175 @@ onMounted(async () => {
   .stats-counter-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+/* 卡券包样式 */
+.section-intro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.coupon-status-tabs {
+  margin-bottom: 20px;
+}
+
+.my-coupon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.my-coupon-item {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.my-coupon-item:hover {
+  transform: translateY(-3px);
+}
+
+.mc-left {
+  width: 90px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 6px;
+  flex-shrink: 0;
+}
+
+.mc-val {
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.mc-val small {
+  font-size: 13px;
+}
+
+.mc-type {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.mc-right {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mc-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.mc-rule {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 4px 0;
+}
+
+.mc-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mc-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.used-item .mc-left, .expired-item .mc-left {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+}
+
+/* 拼场记录样式 */
+.my-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.my-match-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 18px 20px;
+  transition: all 0.2s ease;
+}
+
+.my-match-row:hover {
+  transform: translateY(-2px);
+}
+
+.mm-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.mm-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mm-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.mm-meta-line {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.mm-code-pill {
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(99, 102, 241, 0.04));
+  border: 1px dashed #6366f1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-val {
+  font-size: 18px;
+  font-family: monospace;
+  color: #4f46e5;
+  letter-spacing: 2px;
+}
+
+.mm-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

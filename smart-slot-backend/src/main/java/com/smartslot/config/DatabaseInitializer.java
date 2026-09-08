@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -35,6 +36,11 @@ public class DatabaseInitializer implements CommandLineRunner {
         initSportsCategoriesAndVenues();
         fixVenueCoverImages();
         initVenueReviews();
+        initCouponTables();
+        initMatchTables();
+        initBookingOrderCouponColumns();
+        initSeedCoupons();
+        initSeedMatches();
     }
 
     private void initOperationLogTable() {
@@ -680,6 +686,173 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("数据库初始化: 全量场馆 (1-16号) 美团团购风真实口碑评价初始化完成 (共导入 {} 条精美点评)", reviews.length);
         } catch (Exception e) {
             log.warn("初始化美团式场馆评价数据异常: {}", e.getMessage());
+        }
+    }
+
+    private void initBookingOrderCouponColumns() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE `booking_order` ADD COLUMN `coupon_id` BIGINT DEFAULT NULL COMMENT '优惠券ID'");
+        } catch (Exception ignored) {}
+        try {
+            jdbcTemplate.execute("ALTER TABLE `booking_order` ADD COLUMN `discount_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '优惠券抵扣金额'");
+        } catch (Exception ignored) {}
+        try {
+            jdbcTemplate.execute("ALTER TABLE `booking_order` ADD COLUMN `actual_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '券后实付金额'");
+        } catch (Exception ignored) {}
+    }
+
+    private void initCouponTables() {
+        try {
+            String sql1 = """
+                CREATE TABLE IF NOT EXISTS `coupon` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `name` VARCHAR(100) NOT NULL COMMENT '优惠券名称',
+                  `code` VARCHAR(32) NOT NULL UNIQUE COMMENT '券批次码',
+                  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '1-满减券, 2-折扣券, 3-无门槛立减券',
+                  `min_spend` DECIMAL(8,2) NOT NULL DEFAULT 0.00 COMMENT '最低使用门槛金额',
+                  `discount_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '减免金额',
+                  `discount_rate` DECIMAL(3,2) DEFAULT 1.00 COMMENT '折扣比例',
+                  `valid_days` INT NOT NULL DEFAULT 30 COMMENT '有效天数',
+                  `total_count` INT NOT NULL DEFAULT 1000 COMMENT '发放总量',
+                  `claimed_count` INT NOT NULL DEFAULT 0 COMMENT '已领取数量',
+                  `description` VARCHAR(255) DEFAULT '' COMMENT '使用说明',
+                  `category_id` BIGINT DEFAULT NULL COMMENT '限定品类ID',
+                  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1-正常发放, 0-停发',
+                  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='营销优惠券模板表';
+            """;
+            jdbcTemplate.execute(sql1);
+
+            String sql2 = """
+                CREATE TABLE IF NOT EXISTS `user_coupon` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `coupon_id` BIGINT NOT NULL COMMENT '优惠券ID',
+                  `user_id` BIGINT NOT NULL COMMENT '领取用户ID',
+                  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0-未使用, 1-已使用, 2-已过期',
+                  `claim_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `expire_time` DATETIME NOT NULL,
+                  `used_time` DATETIME DEFAULT NULL,
+                  `order_no` VARCHAR(64) DEFAULT NULL,
+                  PRIMARY KEY (`id`),
+                  KEY `idx_user_id` (`user_id`),
+                  KEY `idx_coupon_id` (`coupon_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户领券记录表';
+            """;
+            jdbcTemplate.execute(sql2);
+            log.info("数据库初始化: 优惠券表 (coupon, user_coupon) 检查就绪");
+        } catch (Exception e) {
+            log.warn("初始化优惠券表异常: {}", e.getMessage());
+        }
+    }
+
+    private void initMatchTables() {
+        try {
+            String sql1 = """
+                CREATE TABLE IF NOT EXISTS `match_activity` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `activity_no` VARCHAR(64) NOT NULL UNIQUE COMMENT '拼场业务单号',
+                  `creator_id` BIGINT NOT NULL COMMENT '发起人ID',
+                  `venue_id` BIGINT NOT NULL COMMENT '场馆ID',
+                  `venue_name` VARCHAR(64) NOT NULL COMMENT '场馆名称',
+                  `category_name` VARCHAR(64) NOT NULL COMMENT '运动分类',
+                  `book_date` DATE NOT NULL COMMENT '活动日期',
+                  `time_slot` VARCHAR(32) NOT NULL COMMENT '活动时段',
+                  `title` VARCHAR(100) NOT NULL COMMENT '拼场主题',
+                  `sport_tag` VARCHAR(64) DEFAULT '双打AA' COMMENT '运动标签',
+                  `target_members` INT NOT NULL DEFAULT 4 COMMENT '目标招募人数',
+                  `current_members` INT NOT NULL DEFAULT 1 COMMENT '当前已参与人数',
+                  `total_amount` DECIMAL(8,2) NOT NULL COMMENT '场地总费用',
+                  `cost_per_person` DECIMAL(8,2) NOT NULL COMMENT '人均AA费用',
+                  `description` TEXT COMMENT '活动要求说明',
+                  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0-招募中, 1-拼场成功已出票, 2-已核销, 3-已解散退款',
+                  `expire_time` DATETIME NOT NULL,
+                  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`id`),
+                  KEY `idx_creator` (`creator_id`),
+                  KEY `idx_venue_date` (`venue_id`, `book_date`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='拼场约球活动表';
+            """;
+            jdbcTemplate.execute(sql1);
+
+            String sql2 = """
+                CREATE TABLE IF NOT EXISTS `match_participant` (
+                  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                  `activity_id` BIGINT NOT NULL COMMENT '拼场活动ID',
+                  `user_id` BIGINT NOT NULL COMMENT '参与用户ID',
+                  `username` VARCHAR(64) NOT NULL COMMENT '用户名',
+                  `nickname` VARCHAR(64) NOT NULL COMMENT '用户昵称',
+                  `avatar` VARCHAR(255) DEFAULT '' COMMENT '头像',
+                  `pay_amount` DECIMAL(8,2) NOT NULL COMMENT '支付金额',
+                  `pay_status` TINYINT NOT NULL DEFAULT 1 COMMENT '1-已支付, 2-已退款',
+                  `is_creator` TINYINT NOT NULL DEFAULT 0 COMMENT '1-发起人, 0-普通成员',
+                  `verify_code` VARCHAR(16) DEFAULT NULL COMMENT '专属到场核销码',
+                  `join_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`id`),
+                  KEY `idx_activity_id` (`activity_id`),
+                  KEY `idx_user_id` (`user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='拼场成员表';
+            """;
+            jdbcTemplate.execute(sql2);
+            log.info("数据库初始化: 拼场约球搭子表 (match_activity, match_participant) 检查就绪");
+        } catch (Exception e) {
+            log.warn("初始化拼场搭子表异常: {}", e.getMessage());
+        }
+    }
+
+    private void initSeedCoupons() {
+        try {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM `coupon`", Integer.class);
+            if (count != null && count > 0) return;
+
+            String insertSql = """
+                INSERT INTO `coupon` (`id`, `name`, `code`, `type`, `min_spend`, `discount_amount`, `discount_rate`, `valid_days`, `total_count`, `claimed_count`, `description`, `status`) VALUES
+                (1, '新人尊享立减券 (无门槛)', 'NEWUSER20', 3, 0.00, 20.00, 1.00, 30, 5000, 128, '注册会员专属福利，全场任意场馆下单立减 20 元', 1),
+                (2, '夜间黄金档满减神券', 'NIGHT100_25', 1, 100.00, 25.00, 1.00, 15, 2000, 350, '晚间 18:00~22:00 高峰期消费满 100 元立减 25 元', 1),
+                (3, '周末燃动畅玩 8.5 折特惠券', 'WEEKEND85', 2, 50.00, 0.00, 0.85, 30, 3000, 512, '周六日全品类通用，单笔订单满 50 元享受 8.5 折优惠', 1),
+                (4, '羽网球友专项满减券', 'RACKET60_15', 1, 60.00, 15.00, 1.00, 20, 1500, 180, '羽毛球馆与网球中心专属，满 60 元立减 15 元', 1);
+            """;
+            jdbcTemplate.execute(insertSql);
+            log.info("数据库初始化: 成功导入 4 大特色优惠券模板演示数据");
+        } catch (Exception e) {
+            log.warn("导入初始优惠券模板异常: {}", e.getMessage());
+        }
+    }
+
+    private void initSeedMatches() {
+        try {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM `match_activity`", Integer.class);
+            if (count != null && count > 0) return;
+
+            LocalDate tomorrow = LocalDate.now().plusDays(1);
+            LocalDate dayAfter = LocalDate.now().plusDays(2);
+
+            String insertSql = """
+                INSERT INTO `match_activity` 
+                (`id`, `activity_no`, `creator_id`, `venue_id`, `venue_name`, `category_name`, `book_date`, `time_slot`, `title`, `sport_tag`, `target_members`, `current_members`, `total_amount`, `cost_per_person`, `description`, `status`, `expire_time`, `create_time`)
+                VALUES 
+                (1, 'ACT20260908001', 2, 1, '羽毛球 1 号场 (奥运专业地胶)', '羽毛球馆', ?, '19:00-20:00', '周三晚李宁双打进阶局【缺2人】AA制15元/位', '双打进阶·AA畅打', 4, 2, 60.00, 15.00, '自带红胜利羽毛球，水平4.0左右，拒绝划水，激战一小时大汗淋漓！', 0, DATE_ADD(NOW(), INTERVAL 2 DAY), NOW()),
+                (2, 'ACT20260908002', 5, 4, '中心网球 1 号场 (红土体验)', '网球中心', ?, '15:00-16:00', '罗兰加洛斯红土拉球局！求一稳定底线球友', '红土底线·新手包容', 2, 1, 120.00, 60.00, '提供法网同款比赛球，练习正反手稳定对拉，欢迎爱好网球的朋友切磋！', 0, DATE_ADD(NOW(), INTERVAL 3 DAY), NOW()),
+                (3, 'ACT20260908003', 2, 5, '室内篮球半场 A (木地板)', '篮球全场/半场', ?, '18:00-19:00', '下班解压！室内半场 3v3 热血投篮对抗赛', '热血对抗·3v3半场', 6, 5, 80.00, 13.33, '木地板防滑减震，自带球衣背心，还差最后 1 位神射手马上发车！', 0, DATE_ADD(NOW(), INTERVAL 2 DAY), NOW()),
+                (4, 'ACT20260908004', 5, 11, '潮流匹克球 1 号场 (低冲击高弹硬地)', '潮流匹克球/壁球', ?, '20:00-21:00', '全网爆火匹克球破冰局！零基础小白新手友好', '潮流轻运动·新手友好', 4, 4, 58.00, 14.50, '馆里免费借碳纤维球拍，5分钟包教包会，轻松出汗交朋友！', 1, DATE_ADD(NOW(), INTERVAL 1 DAY), NOW());
+            """;
+            jdbcTemplate.update(insertSql, tomorrow, dayAfter, tomorrow, tomorrow);
+
+            String pSql = """
+                INSERT INTO `match_participant` (`id`, `activity_id`, `user_id`, `username`, `nickname`, `avatar`, `pay_amount`, `pay_status`, `is_creator`, `verify_code`, `join_time`) VALUES
+                (1, 1, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 15.00, 1, 1, NULL, NOW()),
+                (2, 1, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 15.00, 1, 0, NULL, NOW()),
+                (3, 2, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 60.00, 1, 1, NULL, NOW()),
+                (4, 3, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 13.33, 1, 1, NULL, NOW()),
+                (5, 3, 1, 'admin', '系统超级管理员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 13.33, 1, 0, NULL, NOW()),
+                (6, 4, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 14.50, 1, 1, '712903', NOW()),
+                (7, 4, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 14.50, 1, 0, '684912', NOW());
+            """;
+            jdbcTemplate.execute(pSql);
+            log.info("数据库初始化: 成功导入 4 场特色拼场招募活动与搭子体验数据");
+        } catch (Exception e) {
+            log.warn("导入初始拼场活动异常: {}", e.getMessage());
         }
     }
 }

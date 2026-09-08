@@ -78,7 +78,10 @@ CREATE TABLE `booking_order` (
   `venue_id` BIGINT NOT NULL COMMENT '预约场地ID',
   `book_date` DATE NOT NULL COMMENT '预约日期(如 2026-09-05)',
   `time_slot` VARCHAR(32) NOT NULL COMMENT '预约时段(如 09:00-10:00)',
-  `total_amount` DECIMAL(8,2) NOT NULL DEFAULT 0.00 COMMENT '支付金额(元)',
+  `total_amount` DECIMAL(8,2) NOT NULL DEFAULT 0.00 COMMENT '订单原价金额(元)',
+  `coupon_id` BIGINT DEFAULT NULL COMMENT '使用的优惠券ID',
+  `discount_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '优惠券抵扣金额',
+  `actual_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '券后实付金额',
   `pay_status` TINYINT NOT NULL DEFAULT 0 COMMENT '支付状态: 0-未支付, 1-已支付, 2-已退款',
   `order_status` TINYINT NOT NULL DEFAULT 0 COMMENT '订单状态: 0-待支付锁定中, 1-预约成功(待核销), 2-已完成(已核销), 3-已取消',
   `verify_code` VARCHAR(16) DEFAULT NULL COMMENT '6位专属核销码',
@@ -243,5 +246,119 @@ INSERT INTO `order_review` (`id`, `order_id`, `venue_id`, `user_id`, `rating`, `
 
 (32, 10032, 16, 2, 5, 5, 5, 5, '国际篮联双龙骨枫木,液压篮架极稳固,4K大屏比赛氛围超燃', '行业邀请赛总决赛定在这里办，真的有打NBA的感觉！双龙骨枫木地板弹性极佳，落地膝盖毫无冲击感。扣篮挂筐液压篮架纹丝不动，LED大屏滚动放比分和集锦，观众席坐满呼声雷动！', 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=60', '【店长回复】：热血澎湃的经典对决！赛事级实木全场与液压竞赛篮架专为高强度对抗而生，恭喜冠军战队，期待更多辉煌赛事在此诞生！', 68, NOW()),
 (33, 10033, 16, 5, 5, 5, 5, 5, '中央空调全馆凉爽,更衣室淋浴喷头水量超大,安保专业体面', '包全场打了两小时全场对抗，全馆中央空调完全顶得住二十个人的热量，一点都不闷热。打完洗澡水温恒定，喷头水量大，出来前台还主动帮忙开电子发票，正规体面！', '', '【店长回复】：专业保障，用心护航！大制冷量中央空调与高标准卫浴系统全力护航赛事与团建，期待常来！', 35, NOW());
+
+-- ----------------------------
+-- 7. 营销优惠券表 (coupon)
+-- ----------------------------
+DROP TABLE IF EXISTS `coupon`;
+CREATE TABLE `coupon` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '优惠券名称',
+  `code` VARCHAR(32) NOT NULL UNIQUE COMMENT '券批次码',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '1-满减券, 2-折扣券, 3-无门槛立减券',
+  `min_spend` DECIMAL(8,2) NOT NULL DEFAULT 0.00 COMMENT '最低使用门槛金额',
+  `discount_amount` DECIMAL(8,2) DEFAULT 0.00 COMMENT '减免金额',
+  `discount_rate` DECIMAL(3,2) DEFAULT 1.00 COMMENT '折扣比例',
+  `valid_days` INT NOT NULL DEFAULT 30 COMMENT '有效天数',
+  `total_count` INT NOT NULL DEFAULT 1000 COMMENT '发放总量',
+  `claimed_count` INT NOT NULL DEFAULT 0 COMMENT '已领取数量',
+  `description` VARCHAR(255) DEFAULT '' COMMENT '使用说明',
+  `category_id` BIGINT DEFAULT NULL COMMENT '限定品类ID',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1-正常发放, 0-停发',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='营销优惠券模板表';
+
+-- ----------------------------
+-- 8. 用户领券记录表 (user_coupon)
+-- ----------------------------
+DROP TABLE IF EXISTS `user_coupon`;
+CREATE TABLE `user_coupon` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `coupon_id` BIGINT NOT NULL COMMENT '优惠券ID',
+  `user_id` BIGINT NOT NULL COMMENT '领取用户ID',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0-未使用, 1-已使用, 2-已过期',
+  `claim_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expire_time` DATETIME NOT NULL,
+  `used_time` DATETIME DEFAULT NULL,
+  `order_no` VARCHAR(64) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_coupon_id` (`coupon_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户领券记录表';
+
+-- ----------------------------
+-- 9. 拼场招募活动表 (match_activity)
+-- ----------------------------
+DROP TABLE IF EXISTS `match_activity`;
+CREATE TABLE `match_activity` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `activity_no` VARCHAR(64) NOT NULL UNIQUE COMMENT '拼场业务单号',
+  `creator_id` BIGINT NOT NULL COMMENT '发起人ID',
+  `venue_id` BIGINT NOT NULL COMMENT '场馆ID',
+  `venue_name` VARCHAR(64) NOT NULL COMMENT '场馆名称',
+  `category_name` VARCHAR(64) NOT NULL COMMENT '运动分类',
+  `book_date` DATE NOT NULL COMMENT '活动日期',
+  `time_slot` VARCHAR(32) NOT NULL COMMENT '活动时段',
+  `title` VARCHAR(100) NOT NULL COMMENT '拼场主题',
+  `sport_tag` VARCHAR(64) DEFAULT '双打AA' COMMENT '运动标签',
+  `target_members` INT NOT NULL DEFAULT 4 COMMENT '目标招募人数',
+  `current_members` INT NOT NULL DEFAULT 1 COMMENT '当前已参与人数',
+  `total_amount` DECIMAL(8,2) NOT NULL COMMENT '场地总费用',
+  `cost_per_person` DECIMAL(8,2) NOT NULL COMMENT '人均AA费用',
+  `description` TEXT COMMENT '活动要求说明',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0-招募中, 1-拼场成功已出票, 2-已核销, 3-已解散退款',
+  `expire_time` DATETIME NOT NULL,
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_creator` (`creator_id`),
+  KEY `idx_venue_date` (`venue_id`, `book_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='拼场约球活动表';
+
+-- ----------------------------
+-- 10. 拼场成员表 (match_participant)
+-- ----------------------------
+DROP TABLE IF EXISTS `match_participant`;
+CREATE TABLE `match_participant` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `activity_id` BIGINT NOT NULL COMMENT '拼场活动ID',
+  `user_id` BIGINT NOT NULL COMMENT '参与用户ID',
+  `username` VARCHAR(64) NOT NULL COMMENT '用户名',
+  `nickname` VARCHAR(64) NOT NULL COMMENT '用户昵称',
+  `avatar` VARCHAR(255) DEFAULT '' COMMENT '头像',
+  `pay_amount` DECIMAL(8,2) NOT NULL COMMENT '支付金额',
+  `pay_status` TINYINT NOT NULL DEFAULT 1 COMMENT '1-已支付, 2-已退款',
+  `is_creator` TINYINT NOT NULL DEFAULT 0 COMMENT '1-发起人, 0-普通成员',
+  `verify_code` VARCHAR(16) DEFAULT NULL COMMENT '专属到场核销码',
+  `join_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_activity_id` (`activity_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='拼场成员表';
+
+-- 初始优惠券模板
+INSERT INTO `coupon` (`id`, `name`, `code`, `type`, `min_spend`, `discount_amount`, `discount_rate`, `valid_days`, `total_count`, `claimed_count`, `description`, `status`) VALUES
+(1, '新人尊享立减券 (无门槛)', 'NEWUSER20', 3, 0.00, 20.00, 1.00, 30, 5000, 128, '注册会员专属福利，全场任意场馆下单立减 20 元', 1),
+(2, '夜间黄金档满减神券', 'NIGHT100_25', 1, 100.00, 25.00, 1.00, 15, 2000, 350, '晚间 18:00~22:00 高峰期消费满 100 元立减 25 元', 1),
+(3, '周末燃动畅玩 8.5 折特惠券', 'WEEKEND85', 2, 50.00, 0.00, 0.85, 30, 3000, 512, '周六日全品类通用，单笔订单满 50 元享受 8.5 折优惠', 1),
+(4, '羽网球友专项满减券', 'RACKET60_15', 1, 60.00, 15.00, 1.00, 20, 1500, 180, '羽毛球馆与网球中心专属，满 60 元立减 15 元', 1);
+
+-- 初始拼场活动
+INSERT INTO `match_activity` (`id`, `activity_no`, `creator_id`, `venue_id`, `venue_name`, `category_name`, `book_date`, `time_slot`, `title`, `sport_tag`, `target_members`, `current_members`, `total_amount`, `cost_per_person`, `description`, `status`, `expire_time`, `create_time`) VALUES
+(1, 'ACT20260908001', 2, 1, '羽毛球 1 号场 (奥运专业地胶)', '羽毛球馆', DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY), '19:00-20:00', '周三晚李宁双打进阶局【缺2人】AA制15元/位', '双打进阶·AA畅打', 4, 2, 60.00, 15.00, '自带红胜利羽毛球，水平4.0左右，拒绝划水，激战一小时大汗淋漓！', 0, DATE_ADD(NOW(), INTERVAL 2 DAY), NOW()),
+(2, 'ACT20260908002', 5, 4, '中心网球 1 号场 (红土体验)', '网球中心', DATE_ADD(CURRENT_DATE(), INTERVAL 2 DAY), '15:00-16:00', '罗兰加洛斯红土拉球局！求一稳定底线球友', '红土底线·新手包容', 2, 1, 120.00, 60.00, '提供法网同款比赛球，练习正反手稳定对拉，欢迎爱好网球的朋友切磋！', 0, DATE_ADD(NOW(), INTERVAL 3 DAY), NOW()),
+(3, 'ACT20260908003', 2, 5, '室内篮球半场 A (木地板)', '篮球全场/半场', DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY), '18:00-19:00', '下班解压！室内半场 3v3 热血投篮对抗赛', '热血对抗·3v3半场', 6, 5, 80.00, 13.33, '木地板防滑减震，自带球衣背心，还差最后 1 位神射手马上发车！', 0, DATE_ADD(NOW(), INTERVAL 2 DAY), NOW()),
+(4, 'ACT20260908004', 5, 11, '潮流匹克球 1 号场 (低冲击高弹硬地)', '潮流匹克球/壁球', DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY), '20:00-21:00', '全网爆火匹克球破冰局！零基础小白新手友好', '潮流轻运动·新手友好', 4, 4, 58.00, 14.50, '馆里免费借碳纤维球拍，5分钟包教包会，轻松出汗交朋友！', 1, DATE_ADD(NOW(), INTERVAL 1 DAY), NOW());
+
+-- 初始拼场成员
+INSERT INTO `match_participant` (`id`, `activity_id`, `user_id`, `username`, `nickname`, `avatar`, `pay_amount`, `pay_status`, `is_creator`, `verify_code`, `join_time`) VALUES
+(1, 1, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 15.00, 1, 1, NULL, NOW()),
+(2, 1, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 15.00, 1, 0, NULL, NOW()),
+(3, 2, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 60.00, 1, 1, NULL, NOW()),
+(4, 3, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 13.33, 1, 1, NULL, NOW()),
+(5, 3, 1, 'admin', '系统超级管理员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 13.33, 1, 0, NULL, NOW()),
+(6, 4, 5, 'user1', '先锋运动会员', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 14.50, 1, 1, '712903', NOW()),
+(7, 4, 2, 'user', '羽球小旋风', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 14.50, 1, 0, '684912', NOW());
 
 SET FOREIGN_KEY_CHECKS = 1;

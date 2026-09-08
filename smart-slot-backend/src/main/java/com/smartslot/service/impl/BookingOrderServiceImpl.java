@@ -10,6 +10,7 @@ import com.smartslot.dto.SlotEventDto;
 import com.smartslot.entity.*;
 import com.smartslot.mapper.*;
 import com.smartslot.service.BookingOrderService;
+import com.smartslot.service.CouponService;
 import com.smartslot.service.IotGateService;
 import com.smartslot.service.OrderDelayQueueService;
 import com.smartslot.service.WebSocketPushService;
@@ -46,6 +47,7 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
     private final OrderDelayQueueService orderDelayQueueService;
     private final WebSocketPushService webSocketPushService;
     private final IotGateService iotGateService;
+    private final CouponService couponService;
 
     private static final List<String> STANDARD_SLOTS = List.of(
             "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
@@ -196,9 +198,20 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
             }
         }
 
-        // 3. 生成业务订单号
+        // 3. 生成业务订单号与优惠券试算抵扣
         String orderNo = "ORD" + System.currentTimeMillis() + String.format("%03d", new Random().nextInt(1000));
         LocalDateTime now = LocalDateTime.now();
+
+        BigDecimal originalAmount = venue.getPricePerHour();
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (dto.getUserCouponId() != null) {
+            discountAmount = couponService.consumeUserCoupon(dto.getUserCouponId(), userId, originalAmount, orderNo);
+        }
+        BigDecimal actualAmount = originalAmount.subtract(discountAmount);
+        if (actualAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            actualAmount = new BigDecimal("0.01");
+            discountAmount = originalAmount.subtract(actualAmount);
+        }
 
         BookingOrder order = BookingOrder.builder()
                 .orderNo(orderNo)
@@ -206,7 +219,10 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
                 .venueId(dto.getVenueId())
                 .bookDate(dto.getBookDate())
                 .timeSlot(dto.getTimeSlot())
-                .totalAmount(venue.getPricePerHour())
+                .totalAmount(actualAmount) // 实付需支付金额
+                .couponId(dto.getUserCouponId())
+                .discountAmount(discountAmount)
+                .actualAmount(actualAmount)
                 .payStatus(0) // 未支付
                 .orderStatus(0) // 待支付锁定中
                 .contactName(dto.getContactName())
@@ -337,6 +353,9 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
         order.setCancelReason(StringUtils.hasText(reason) ? reason : "用户自主取消");
         order.setUpdateTime(LocalDateTime.now());
         updateById(order);
+
+        // 如果使用了优惠券，退还优惠券
+        couponService.rollbackUserCoupon(order.getOrderNo());
 
         // 释放时段锁
         luaLockManager.unlockAtomic(buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot()), "FORCE_UNLOCK");
@@ -500,6 +519,9 @@ public class BookingOrderServiceImpl extends ServiceImpl<BookingOrderMapper, Boo
             order.setCancelReason("支付超时(15分钟)，系统自动关闭订单并释放锁");
             order.setUpdateTime(LocalDateTime.now());
             updateById(order);
+
+            // 如果使用了优惠券，退还优惠券
+            couponService.rollbackUserCoupon(order.getOrderNo());
 
             String lockKey = buildLockKey(order.getVenueId(), order.getBookDate(), order.getTimeSlot());
             luaLockManager.unlockAtomic(lockKey, "FORCE_UNLOCK");

@@ -36,6 +36,12 @@ public class BookingOrder implements Serializable {
 
     private BigDecimal totalAmount;
 
+    private Long couponId; // 关联使用的优惠券ID
+
+    private BigDecimal discountAmount; // 优惠券抵扣金额
+
+    private BigDecimal actualAmount; // 券后实付金额
+
     private Integer payStatus; // 0-未支付, 1-已支付, 2-已退款
 
     private Integer orderStatus; // 0-待支付锁定中, 1-预约成功(待核销), 2-已完成(已核销), 3-已取消

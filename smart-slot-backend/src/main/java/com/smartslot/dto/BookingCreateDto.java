@@ -32,4 +32,6 @@ public class BookingCreateDto {
     @NotBlank(message = "联系电话不能为空")
     @Pattern(regexp = "^1[3-9]\\d{9}$", message = "联系人电话格式不合法")
     private String contactPhone;
+
+    private Long userCouponId; // 选用的优惠券ID (可选)
 }

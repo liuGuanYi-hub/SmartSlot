@@ -1068,7 +1068,6 @@ defineExpose({
 }
 
 .board-cell {
-  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1076,6 +1075,7 @@ defineExpose({
   text-align: center;
   border-right: 1px solid var(--border-subtle);
   box-sizing: border-box;
+  margin: 0;
 }
 
 .time-col-header, .time-col-label {
@@ -1089,6 +1089,8 @@ defineExpose({
   left: 0;
   z-index: 6;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .time-col-header {
@@ -1098,6 +1100,8 @@ defineExpose({
   color: var(--text-main);
   font-size: 13px;
   z-index: 12;
+  min-height: 98px;
+  padding: 12px 8px;
 }
 
 .time-col-label {
@@ -1107,6 +1111,8 @@ defineExpose({
   color: var(--text-muted);
   font-weight: 600;
   font-family: monospace;
+  min-height: 60px;
+  padding: 8px;
 }
 
 .current-indicator-dot {
@@ -1127,9 +1133,14 @@ defineExpose({
   max-width: 172px;
   flex: 0 0 172px;
   box-sizing: border-box;
-  padding: 10px 8px;
+  padding: 12px 8px;
   overflow: hidden;
   text-align: center;
+  border-right: 1px solid var(--border-subtle);
+  min-height: 98px;
+  justify-content: flex-start;
+  margin: 0;
+  position: relative;
 }
 
 .v-name {
@@ -1188,20 +1199,30 @@ defineExpose({
   min-width: 172px;
   max-width: 172px;
   flex: 0 0 172px;
-  min-height: 54px;
+  min-height: 60px;
   box-sizing: border-box;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: 6px;
-  margin: 2px;
+  padding: 4px 6px;
+  margin: 0 !important;
+  border-right: 1px solid var(--border-subtle);
   overflow: hidden;
+  background: transparent;
+  transition: background 0.15s ease;
 }
 
 .slot-inner {
+  width: 100%;
+  height: 100%;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  padding: 4px 2px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .status-title {
@@ -1214,24 +1235,24 @@ defineExpose({
   opacity: 0.85;
 }
 
-/* 各状态色阶升级 */
-.slot-available {
+/* 各状态色阶升级 (严密作用于内层卡片，保证外层网格列对齐毫厘不差) */
+.slot-cell.slot-available .slot-inner {
   background-color: #ecfdf5;
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
-.slot-available:hover {
+.slot-cell.slot-available:hover .slot-inner {
   background: #10b981;
   color: #ffffff;
   transform: scale(0.97);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
   border-color: #10b981;
 }
-.slot-available:hover .slot-price-hint {
+.slot-cell.slot-available:hover .slot-price-hint {
   color: #ffffff;
 }
 
-.slot-pending {
+.slot-cell.slot-pending .slot-inner {
   background-color: #fffbeb;
   color: #b45309;
   border: 1px solid #fde68a;
@@ -1246,14 +1267,14 @@ defineExpose({
   font-size: 12px;
 }
 
-.slot-booked {
+.slot-cell.slot-booked .slot-inner {
   background-color: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
   cursor: not-allowed;
 }
 
-.slot-mine {
+.slot-cell.slot-mine .slot-inner {
   background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
   color: #5b21b6;
   border: 1.5px solid #8b5cf6;
@@ -1268,7 +1289,7 @@ defineExpose({
   font-family: monospace;
 }
 
-.slot-maintenance {
+.slot-cell.slot-maintenance .slot-inner {
   background-color: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
@@ -1339,33 +1360,33 @@ defineExpose({
   position: relative;
 }
 
-/* 深色模式下的各状态色阶自适应 */
-:global(html.dark) .slot-available {
+/* 深色模式下的各状态色阶自适应 (作用于内层卡片) */
+:global(html.dark) .slot-cell.slot-available .slot-inner {
   background-color: rgba(16, 185, 129, 0.12);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.28);
 }
-:global(html.dark) .slot-available:hover {
+:global(html.dark) .slot-cell.slot-available:hover .slot-inner {
   background: #10b981;
   color: #ffffff;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
 }
-:global(html.dark) .slot-pending {
+:global(html.dark) .slot-cell.slot-pending .slot-inner {
   background-color: rgba(245, 158, 11, 0.12);
   color: #fbbf24;
   border: 1px solid rgba(245, 158, 11, 0.28);
 }
-:global(html.dark) .slot-booked {
+:global(html.dark) .slot-cell.slot-booked .slot-inner {
   background-color: rgba(239, 68, 68, 0.12);
   color: #f87171;
   border: 1px solid rgba(239, 68, 68, 0.22);
 }
-:global(html.dark) .slot-mine {
+:global(html.dark) .slot-cell.slot-mine .slot-inner {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
   color: #c4b5fd;
   border: 1.5px solid #8b5cf6;
 }
-:global(html.dark) .slot-maintenance {
+:global(html.dark) .slot-cell.slot-maintenance .slot-inner {
   background-color: rgba(100, 116, 139, 0.12);
   color: #64748b;
   border: 1px dashed rgba(100, 116, 139, 0.25);
@@ -1386,12 +1407,12 @@ defineExpose({
   }
 }
 
-/* 场地列聚焦高亮动效 */
+/* 场地列聚焦高亮动效 (零边距垂直无缝贯通，毫厘不差严格对齐) */
 .venue-col-header.venue-col-focused {
-  background: rgba(79, 70, 229, 0.12) !important;
-  border-bottom: 2px solid #4f46e5 !important;
-  box-shadow: inset 0 0 0 1.5px #4f46e5;
+  background: rgba(79, 70, 229, 0.1) !important;
+  box-shadow: inset 2px 2px 0 0 #4f46e5, inset -2px 0 0 0 #4f46e5, inset 0 -2px 0 0 #4f46e5 !important;
   position: relative;
+  z-index: 11;
 }
 
 .focus-pulse-tag {
@@ -1413,27 +1434,25 @@ defineExpose({
 }
 
 .board-cell.venue-col-focused-cell {
-  background: rgba(79, 70, 229, 0.05);
-  border-left: 1.5px dashed rgba(79, 70, 229, 0.4) !important;
-  border-right: 1.5px dashed rgba(79, 70, 229, 0.4) !important;
-  animation: venueColPulse 2.5s ease-in-out;
+  background: rgba(79, 70, 229, 0.04) !important;
+  box-shadow: inset 2px 0 0 0 #4f46e5, inset -2px 0 0 0 #4f46e5 !important;
 }
 
-@keyframes venueColPulse {
-  0% { background: rgba(79, 70, 229, 0.22); }
-  50% { background: rgba(79, 70, 229, 0.1); }
-  100% { background: rgba(79, 70, 229, 0.05); }
+.data-row:last-child .board-cell.venue-col-focused-cell {
+  box-shadow: inset 2px 0 0 0 #4f46e5, inset -2px 0 0 0 #4f46e5, inset 0 -2px 0 0 #4f46e5 !important;
 }
 
 :global(html.dark) .venue-col-header.venue-col-focused {
-  background: rgba(99, 102, 241, 0.2) !important;
-  border-bottom: 2px solid #818cf8 !important;
-  box-shadow: inset 0 0 0 1.5px #818cf8;
+  background: rgba(99, 102, 241, 0.18) !important;
+  box-shadow: inset 2px 2px 0 0 #818cf8, inset -2px 0 0 0 #818cf8, inset 0 -2px 0 0 #818cf8 !important;
 }
 
 :global(html.dark) .board-cell.venue-col-focused-cell {
-  background: rgba(99, 102, 241, 0.08);
-  border-left: 1.5px dashed rgba(129, 140, 248, 0.5) !important;
-  border-right: 1.5px dashed rgba(129, 140, 248, 0.5) !important;
+  background: rgba(99, 102, 241, 0.07) !important;
+  box-shadow: inset 2px 0 0 0 #818cf8, inset -2px 0 0 0 #818cf8 !important;
+}
+
+:global(html.dark) .data-row:last-child .board-cell.venue-col-focused-cell {
+  box-shadow: inset 2px 0 0 0 #818cf8, inset -2px 0 0 0 #818cf8, inset 0 -2px 0 0 #818cf8 !important;
 }
 </style>

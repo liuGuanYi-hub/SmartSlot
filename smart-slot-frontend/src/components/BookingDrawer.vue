@@ -27,52 +27,175 @@
         </div>
       </div>
 
+      <!-- 预订模式分段切换 (自主包场 vs 发起 AA 拼场) -->
+      <div class="booking-mode-switcher">
+        <button 
+          type="button"
+          class="mode-switch-btn" 
+          :class="{ active: bookingMode === 'solo' }"
+          @click="bookingMode = 'solo'"
+        >
+          <el-icon><Calendar /></el-icon>
+          <span>自主订场 (独享)</span>
+        </button>
+        <button 
+          type="button"
+          class="mode-switch-btn" 
+          :class="{ active: bookingMode === 'match' }"
+          @click="bookingMode = 'match'"
+        >
+          <el-icon><Connection /></el-icon>
+          <span>发起拼场 (找搭子)</span>
+          <span class="hot-pill">AA制</span>
+        </button>
+      </div>
+
       <!-- 防超卖与分布式锁机制提示 (带呼吸感) -->
       <div class="lock-mechanism-tip">
         <div class="tip-icon"><span class="live-dot"></span></div>
         <div class="tip-body">
-          <strong>Redis 实时锁定时段：</strong>
-          <span>提交后该时段将在集群中原子锁定 15 分钟，其他用户无法重复抢占，超时未支付将自动回滚释放。</span>
+          <strong>{{ bookingMode === 'solo' ? 'Redis 实时锁定时段：' : 'AA 拼场招募预占：' }}</strong>
+          <span>{{ bookingMode === 'solo' ? '提交后该时段将在集群中原子锁定 15 分钟，其他用户无法重复抢占，超时未支付将自动回滚释放。' : '发起后时段将为您优先锁定招募，满员即自动转正出票并下发专属入场码，若未成团可全额原路退款。' }}</span>
         </div>
       </div>
 
-      <!-- 联系人表单 (带 JSR-303 前端联动校验) -->
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-position="top"
-        class="booking-interactive-form"
-      >
-        <el-form-item label="使用人姓名" prop="contactName">
-          <el-input 
-            v-model="formData.contactName" 
-            placeholder="请输入使用人姓名" 
-            size="large"
-          >
-            <template #prefix><el-icon><User /></el-icon></template>
-          </el-input>
-        </el-form-item>
+      <!-- 模式 1: 自主订场表单 + 优惠券抵扣 -->
+      <template v-if="bookingMode === 'solo'">
+        <el-form
+          ref="formRef"
+          :model="formData"
+          :rules="formRules"
+          label-position="top"
+          class="booking-interactive-form"
+        >
+          <el-form-item label="使用人姓名" prop="contactName">
+            <el-input 
+              v-model="formData.contactName" 
+              placeholder="请输入使用人姓名" 
+              size="large"
+            >
+              <template #prefix><el-icon><User /></el-icon></template>
+            </el-input>
+          </el-form-item>
 
-        <el-form-item label="联系电话" prop="contactPhone">
-          <el-input 
-            v-model="formData.contactPhone" 
-            placeholder="请输入 11 位手机号码" 
-            maxlength="11" 
+          <el-form-item label="联系电话" prop="contactPhone">
+            <el-input 
+              v-model="formData.contactPhone" 
+              placeholder="请输入 11 位手机号码" 
+              maxlength="11" 
+              size="large"
+            >
+              <template #prefix><el-icon><Iphone /></el-icon></template>
+            </el-input>
+          </el-form-item>
+        </el-form>
+
+        <!-- 优惠券选择器 -->
+        <div class="coupon-select-card card-shadow">
+          <div class="c-head">
+            <div class="c-title-row">
+              <el-icon><Ticket /></el-icon>
+              <span>优惠券抵扣</span>
+            </div>
+            <span v-if="selectedCouponDiscount > 0" class="c-badge">已减 ￥{{ selectedCouponDiscount }}</span>
+          </div>
+
+          <el-select 
+            v-model="selectedUserCouponId" 
+            placeholder="暂无可用优惠券或不使用" 
+            clearable
             size="large"
+            style="width: 100%; margin-top: 8px;"
+            @change="onCouponChange"
           >
-            <template #prefix><el-icon><Iphone /></el-icon></template>
-          </el-input>
-        </el-form-item>
-      </el-form>
+            <el-option 
+              v-for="uc in availableCoupons" 
+              :key="uc.id" 
+              :label="`${uc.couponName} (抵扣 ￥${calculateItemDiscount(uc)})`" 
+              :value="uc.id" 
+            />
+          </el-select>
+          <div v-if="availableCoupons.length === 0" class="no-coupon-tip">
+            暂无适用的优惠券？<span class="link-span" @click="$router.push('/coupons')">去领券中心免费领券 ▶</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- 模式 2: 发起 AA 拼场招募表单 -->
+      <template v-else>
+        <el-form
+          ref="matchFormRef"
+          :model="matchForm"
+          :rules="matchRules"
+          label-position="top"
+          class="booking-interactive-form"
+        >
+          <el-form-item label="拼场招募主题" prop="title">
+            <el-input 
+              v-model="matchForm.title" 
+              placeholder="如：李宁双打进阶局缺2人，AA制畅打" 
+              size="large"
+            />
+          </el-form-item>
+
+          <div class="drawer-grid-2">
+            <el-form-item label="运动标签" prop="sportTag">
+              <el-select v-model="matchForm.sportTag" size="large" style="width: 100%;">
+                <el-option label="双打进阶·AA畅打" value="双打进阶·AA畅打" />
+                <el-option label="新手友好·破冰娱乐" value="新手友好·破冰娱乐" />
+                <el-option label="半场3v3热血对抗" value="半场3v3热血对抗" />
+                <el-option label="单打稳定对拉切磋" value="单打稳定对拉切磋" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="招募总人数 (含您)" prop="targetMembers">
+              <el-input-number 
+                v-model="matchForm.targetMembers" 
+                :min="2" 
+                :max="10" 
+                size="large" 
+                style="width: 100%;" 
+              />
+            </el-form-item>
+          </div>
+
+          <el-form-item label="招募寄语 / 装备说明 (选填)">
+            <el-input 
+              v-model="matchForm.description" 
+              type="textarea" 
+              rows="2" 
+              placeholder="说明水平等级、自带球拍等..." 
+            />
+          </el-form-item>
+        </el-form>
+
+        <!-- AA 费用核算预览卡 -->
+        <div class="aa-preview-banner">
+          <div class="ap-row">
+            <span>场地原价：</span>
+            <span>￥{{ slotData.price }}</span>
+          </div>
+          <div class="ap-row">
+            <span>分摊人数：</span>
+            <span>{{ matchForm.targetMembers }} 人</span>
+          </div>
+          <div class="ap-row ap-lead">
+            <span>人均 AA 费用：</span>
+            <span class="ap-price">￥{{ currentMatchCostPerPerson }} / 人</span>
+          </div>
+        </div>
+      </template>
 
       <!-- 底部费用结算栏 -->
       <div class="drawer-footer-bar">
         <div class="amount-summary">
-          <span class="summary-label">合计应付</span>
+          <span class="summary-label">{{ bookingMode === 'solo' ? '券后实付' : '首付 AA 份额' }}</span>
           <div class="summary-price">
             <span class="sym">￥</span>
-            <span class="val">{{ slotData.price }}</span>
+            <span class="val">{{ currentPayAmount }}</span>
+          </div>
+          <div v-if="bookingMode === 'solo' && selectedCouponDiscount > 0" class="discount-cross">
+            原价 ￥{{ slotData.price }}
           </div>
         </div>
         <div class="action-buttons">
@@ -82,9 +205,9 @@
             size="large" 
             class="submit-lock-btn shimmer-badge" 
             :loading="submitting" 
-            @click="submitBooking"
+            @click="handleSubmit"
           >
-            锁定并支付
+            {{ bookingMode === 'solo' ? '锁定并支付' : '支付首款并发起' }}
           </el-button>
         </div>
       </div>
@@ -212,9 +335,11 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { User, Iphone, CopyDocument } from '@element-plus/icons-vue'
+import { ref, reactive, computed } from 'vue'
+import { User, Iphone, CopyDocument, Ticket, Connection, Calendar } from '@element-plus/icons-vue'
 import { lockAndCreateOrder, payOrder, getIdempotentToken } from '@/api/booking'
+import { calculateOptimalCoupon } from '@/api/coupon'
+import { createMatch } from '@/api/match'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -228,6 +353,27 @@ const visible = ref(false)
 const slotData = ref(null)
 const submitting = ref(false)
 const paying = ref(false)
+
+const bookingMode = ref('solo') // 'solo' | 'match'
+
+// 优惠券状态
+const availableCoupons = ref([])
+const optimalData = ref(null)
+const selectedUserCouponId = ref(null)
+
+// 拼场表单
+const matchFormRef = ref(null)
+const matchForm = reactive({
+  title: '',
+  sportTag: '双打进阶·AA畅打',
+  targetMembers: 4,
+  description: ''
+})
+
+const matchRules = {
+  title: [{ required: true, message: '请输入拼场招募主题', trigger: 'blur' }],
+  targetMembers: [{ required: true, message: '请设置招募人数', trigger: 'change' }]
+}
 
 const payDialogVisible = ref(false)
 const cashierModalRef = ref(null)
@@ -249,7 +395,41 @@ const formRules = {
   ]
 }
 
-function open(data) {
+const selectedCouponDiscount = computed(() => {
+  if (!selectedUserCouponId.value || !availableCoupons.value.length) return 0
+  const c = availableCoupons.value.find(item => item.id === selectedUserCouponId.value)
+  return c ? calculateItemDiscount(c) : 0
+})
+
+const currentMatchCostPerPerson = computed(() => {
+  if (!slotData.value?.price || !matchForm.targetMembers) return '0.00'
+  return (slotData.value.price / matchForm.targetMembers).toFixed(2)
+})
+
+const currentPayAmount = computed(() => {
+  if (bookingMode.value === 'solo') {
+    const orig = slotData.value?.price || 0
+    const disc = selectedCouponDiscount.value || 0
+    return Math.max(0.01, orig - disc).toFixed(2)
+  } else {
+    return currentMatchCostPerPerson.value
+  }
+})
+
+function calculateItemDiscount(c) {
+  const orig = slotData.value?.price || 0
+  if (c.couponType === 2) {
+    const rate = c.discountRate || 1
+    return (orig * (1 - rate)).toFixed(2)
+  }
+  return (c.discountAmount || 0).toFixed(2)
+}
+
+function onCouponChange(val) {
+  // selectedUserCouponId.value is updated
+}
+
+async function open(data) {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录会员账号')
     router.push('/login')
@@ -257,16 +437,76 @@ function open(data) {
   }
 
   slotData.value = data
+  bookingMode.value = 'solo'
   formData.contactName = userStore.userInfo?.nickname || userStore.userInfo?.username || ''
   formData.contactPhone = userStore.userInfo?.phone || '13912345678'
   paymentSuccess.value = false
   createdOrder.value = null
   paidOrder.value = null
+
+  // 默认拼场主题
+  matchForm.title = `${data.venue?.name || '场地'} AA畅打切磋局`
+  matchForm.sportTag = '双打进阶·AA畅打'
+  matchForm.targetMembers = 4
+  matchForm.description = ''
+
   visible.value = true
+
+  // 请求优惠券智能推荐
+  try {
+    const optRes = await calculateOptimalCoupon({
+      venueId: data.venue?.id || data.venue?.venueId,
+      amount: data.price
+    })
+    optimalData.value = optRes
+    availableCoupons.value = optRes?.availableCoupons || []
+    if (optRes?.bestCoupon) {
+      selectedUserCouponId.value = optRes.bestCoupon.id
+    } else {
+      selectedUserCouponId.value = null
+    }
+  } catch (e) {
+    console.error('获取优惠券智能推荐异常:', e)
+  }
 }
 
 function handleClose(done) {
   done()
+}
+
+async function handleSubmit() {
+  if (bookingMode.value === 'solo') {
+    await submitBooking()
+  } else {
+    await submitMatch()
+  }
+}
+
+async function submitMatch() {
+  if (!matchFormRef.value) return
+  await matchFormRef.value.validate()
+
+  submitting.value = true
+  try {
+    await createMatch({
+      venueId: slotData.value.venue?.id || slotData.value.venue?.venueId,
+      bookDate: slotData.value.date,
+      timeSlot: slotData.value.timeSlot,
+      title: matchForm.title,
+      sportTag: matchForm.sportTag,
+      targetMembers: matchForm.targetMembers,
+      description: matchForm.description
+    })
+    visible.value = false
+    ElMessage.success('🎉 恭喜！拼场招募发起成功，已锁定该时段并进入拼场大厅！')
+    await userStore.fetchCurrentUser?.()
+    emit('success')
+    router.push('/match')
+  } catch (e) {
+    console.error(e)
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function submitBooking() {
@@ -281,7 +521,8 @@ async function submitBooking() {
       bookDate: slotData.value.date,
       timeSlot: slotData.value.timeSlot,
       contactName: formData.contactName,
-      contactPhone: formData.contactPhone
+      contactPhone: formData.contactPhone,
+      userCouponId: selectedUserCouponId.value || undefined
     }, token)
     createdOrder.value = res
     visible.value = false
@@ -635,5 +876,141 @@ defineExpose({
   padding: 4px 12px;
   border-radius: 999px;
   font-weight: 600;
+}
+
+/* 预订模式分段切换 */
+.booking-mode-switcher {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  gap: 4px;
+}
+
+.mode-switch-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.mode-switch-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.hot-pill {
+  font-size: 10px;
+  background: #ef4444;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+/* 优惠券选择卡片 */
+.coupon-select-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+
+.c-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.c-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.c-badge {
+  font-size: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.no-coupon-tip {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
+}
+
+.link-span {
+  color: #4f46e5;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.link-span:hover {
+  text-decoration: underline;
+}
+
+.drawer-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* AA 费用预览卡 */
+.aa-preview-banner {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(99, 102, 241, 0.04));
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.ap-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.ap-lead {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(79, 70, 229, 0.2);
+}
+
+.ap-price {
+  font-size: 18px;
+  color: #ef4444;
+  font-weight: 900;
+}
+
+.discount-cross {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: line-through;
+  margin-top: 2px;
 }
 </style>

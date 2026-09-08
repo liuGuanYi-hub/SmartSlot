@@ -28,6 +28,16 @@ const routes = [
     component: () => import('@/views/VenueDetailView.vue')
   },
   {
+    path: '/match',
+    name: 'Match',
+    component: () => import('@/views/MatchView.vue')
+  },
+  {
+    path: '/coupons',
+    name: 'CouponCenter',
+    component: () => import('@/views/CouponCenterView.vue')
+  },
+  {
     path: '/my-bookings',
     name: 'MyBookings',
     component: MyBookingsView,
